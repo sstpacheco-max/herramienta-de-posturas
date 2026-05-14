@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const activeCamerasViewport = document.getElementById('active-cameras-viewport');
     const modalCamera = document.getElementById('modal-camera');
     const btnAddCam = document.getElementById('btn-add-cam');
+    const btnAddCamTop = document.getElementById('btn-add-cam-top');
     const btnCloseModal = document.getElementById('btn-close-modal');
     const cameraForm = document.getElementById('camera-form');
     
@@ -74,8 +75,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Funciones de UI ---
-    btnAddCam.onclick = () => modalCamera.style.display = 'flex';
-    btnCloseModal.onclick = () => modalCamera.style.display = 'none';
+    if (btnAddCam) btnAddCam.onclick = () => modalCamera.style.display = 'flex';
+    if (btnAddCamTop) btnAddCamTop.onclick = () => modalCamera.style.display = 'flex';
+    if (btnCloseModal) btnCloseModal.onclick = () => modalCamera.style.display = 'none';
 
     cameraForm.onsubmit = async (e) => {
         e.preventDefault();

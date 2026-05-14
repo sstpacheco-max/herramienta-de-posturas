@@ -5,18 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SST 4.0 - Panel de Seguridad Industrial</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="style.css?v=1.2">
 </head>
 <body class="dashboard-active">
     <div class="top-bar">
         <div class="brand">
             <span class="logo">🛡️</span>
-            <h1>PANEL DE SEGURIDAD INDUSTRIAL - VISIÓN ARTIFICIAL</h1>
+            <h1>SST 4.0 - VISIÓN ARTIFICIAL</h1>
         </div>
         <div class="system-meta">
+            <button id="btn-add-cam-top" class="btn-glow-small">➕ AGREGAR CÁMARA PC</button>
             <div class="status-indicator active">
-                Estado del Sistema: <span id="system-status-text">ACTIVO</span>
+                SISTEMA: <span id="system-status-text">ACTIVO</span>
             </div>
+        </div>
             <div class="sensor-count">
                 Sensores: <span id="sensor-count-val">12</span>
             </div>
@@ -212,6 +214,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="/static/app.js"></script>
+    <script src="app.js?v=1.2"></script>
 </body>
 </html>

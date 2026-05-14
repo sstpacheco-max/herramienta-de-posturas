@@ -23,7 +23,8 @@ body {
     color: var(--text-primary);
     font-family: 'Inter', sans-serif;
     min-height: 100vh;
-    overflow-y: auto; /* Permite scroll si la pantalla es muy pequeña */
+    overflow-y: auto;
+    zoom: 0.85; /* Forzar escala menor para que quepa todo */
     background-image: 
         radial-gradient(circle at 10% 20%, rgba(79, 172, 254, 0.05) 0%, transparent 40%),
         radial-gradient(circle at 90% 80%, rgba(0, 230, 118, 0.05) 0%, transparent 40%);
@@ -127,12 +128,12 @@ body {
     backdrop-filter: blur(12px);
     border: 1px solid var(--glass-border);
     border-radius: 10px;
-    padding: 0.5rem; /* Even smaller */
+    padding: 0.4rem; /* Even smaller */
     display: flex;
     flex-direction: column;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
     min-height: 0;
-    height: 100%; /* Fill the grid cell */
+    height: 100%;
 }
 
 .card-header {
@@ -348,15 +349,22 @@ body {
     padding: 2rem;
 }
 
-.btn-glow {
-    background: linear-gradient(45deg, var(--accent-blue), #0077ff);
-    color: white;
+.btn-glow-small {
+    background: linear-gradient(45deg, var(--accent-green), #00c853);
+    color: #000;
     border: none;
-    padding: 0.8rem 1.5rem;
-    border-radius: 6px;
-    font-weight: 700;
+    padding: 0.4rem 1rem;
+    border-radius: 4px;
+    font-weight: 800;
+    font-size: 0.75rem;
     cursor: pointer;
-    box-shadow: var(--glow-blue);
+    box-shadow: 0 0 10px rgba(0, 230, 118, 0.3);
+    transition: all 0.2s;
+}
+
+.btn-glow-small:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px rgba(0, 230, 118, 0.5);
 }
 
 /* --- Animations --- */
