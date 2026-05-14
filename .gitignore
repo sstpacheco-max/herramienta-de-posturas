@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.env
+
+# MediaPipe models (Optional, but large)
+# cv_backend/pose_landmarker.task
+
+# App data / logs
+cv_backend/evidencias/
+cv_backend/reportes_legales/
+cv_backend/sst_log_eventos.json
+cv_backend/db_rostros/
+
+# OS
+.DS_Store
+Thumbs.db

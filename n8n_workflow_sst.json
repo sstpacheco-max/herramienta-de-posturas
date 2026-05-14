@@ -1,0 +1,105 @@
+{
+  "name": "SST 4.0 - Alertas CV a AppSheet y Docs",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sst-alerts",
+        "options": {}
+      },
+      "id": "e1f2babc-webhook-sst",
+      "name": "Webhook IA",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [ 250, 300 ],
+      "webhookId": "cb315c10-2b1f-4927-aa87-fa2f1c8d5c41"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.body.riesgo}}",
+              "operation": "equal",
+              "value2": "Alto"
+            },
+            {
+              "value1": "={{$json.body.riesgo}}",
+              "operation": "equal",
+              "value2": "Critico"
+            }
+          ],
+          "combineOperation": "any"
+        }
+      },
+      "id": "e2f3bcbc-if-node",
+      "name": "Condicional Gravedad",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [ 480, 300 ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.appsheet.com/api/v2/apps/TU-APP-ID/tables/Eventos_SST/Action",
+        "authentication": "headerAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "Action",
+              "value": "Add"
+            },
+            {
+              "name": "Properties",
+              "value": "={ \"Locale\": \"es-CO\", \"Timezone\": \"SA Pacific Standard Time\" }"
+            },
+            {
+              "name": "Rows",
+              "value": "={{ [ {\n  \"ID_Camara\": $json.body.id_camara,\n  \"ID_Empleado\": $json.body.id_empleado,\n  \"Metodo_Evaluacion\": $json.body.metodo,\n  \"Puntuacion\": $json.body.score,\n  \"Nivel_Riesgo\": $json.body.riesgo\n} ] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e3f4cdcd-http-appsheet",
+      "name": "Guardar en Base de Datos AppSheet",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [ 720, 200 ]
+    },
+    {
+      "parameters": {
+        "sendTo": "sst.pacheco@gmail.com",
+        "subject": "={{ 'ALERTA SST: Riesgo ' + $json.body.riesgo + ' detectado' }}",
+        "message": "={{ 'Se ha detectado un riesgo ' + $json.body.riesgo + ' para el empleado ' + $json.body.id_empleado + ' usando el método ' + $json.body.metodo + '. El borrador del documento legal se encuentra en la ruta: ' + $json.body.archivo_legal }}",
+        "appendAttribution": false
+      },
+      "id": "e4f5dede-gmail",
+      "name": "Enviar Correo",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [ 960, 200 ]
+    }
+  ],
+  "connections": {
+    "Webhook IA": {
+      "main": [
+        [ { "node": "Condicional Gravedad", "type": "main", "index": 0 } ]
+      ]
+    },
+    "Condicional Gravedad": {
+      "main": [
+        [ { "node": "Guardar en Base de Datos AppSheet", "type": "main", "index": 0 } ]
+      ]
+    },
+    "Guardar en Base de Datos AppSheet": {
+      "main": [
+        [ { "node": "Enviar Correo", "type": "main", "index": 0 } ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

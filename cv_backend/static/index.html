@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SST 4.0 - Computer Vision Orchestrator</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="background-animation"></div>
+    <div class="container">
+        <header>
+            <h1>SST 4.0</h1>
+            <p>Computer Vision Orchestrator</p>
+        </header>
+
+        <div class="dashboard-summary">
+            <div class="summary-card">
+                <div class="card-icon">⚠️</div>
+                <div class="card-info">
+                    <span class="card-label">Violaciones Totales</span>
+                    <span class="card-value" id="stat-total-violations">0</span>
+                </div>
+            </div>
+            <div class="summary-card critical">
+                <div class="card-icon">🚨</div>
+                <div class="card-info">
+                    <span class="card-label">Alertas Críticas</span>
+                    <span class="card-value" id="stat-critical-alerts">0</span>
+                </div>
+            </div>
+            <div class="summary-card">
+                <div class="card-icon">⚡</div>
+                <div class="card-info">
+                    <span class="card-label">Tiempo de Actividad</span>
+                    <span class="card-value" id="stat-uptime">0h 0m</span>
+                </div>
+            </div>
+            <div class="summary-card">
+                <div class="card-icon">🔄</div>
+                <div class="card-info">
+                    <span class="card-label">Sincronización n8n</span>
+                    <span class="card-value" id="stat-n8n-status">Conectado</span>
+                </div>
+            </div>
+        </div>
+
+        <main>
+            <section class="glass-panel">
+                <h2>Registrar Nuevo Trabajador</h2>
+                <form id="register-form" style="display: flex; flex-direction: column; gap: 1rem;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="form-group">
+                            <label for="worker-id">Nombre / ID</label>
+                            <input type="text" id="worker-id" placeholder="Ej: Juan Perez" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="worker-photo">Foto de Referencia</label>
+                            <input type="file" id="worker-photo" accept="image/*" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary" style="margin-top: 0.5rem;">Registrar Biometría Facial</button>
+                </form>
+            </section>
+
+            <section class="glass-panel">
+                <h2>Agregar Nueva Cámara</h2>
+                <form id="camera-form">
+                    <div class="form-group">
+                        <label for="camera-url">URL de la Cámara (o 'TEST' para simulación)</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="camera-url" placeholder="ej. http://192.168.1.100:8080/video" required>
+                            <button type="button" id="btn-local-cam" class="btn-secondary" style="width: auto; white-space: nowrap;">Cámara PC</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="method">Método de Análisis</label>
+                        <select id="method">
+                            <option value="RULA">RULA (Posturas del Tren Superior)</option>
+                            <option value="REBA">REBA (Cuerpo Entero)</option>
+                            <option value="EPP">EPP (Solo Implementos de Seguridad)</option>
+                            <option value="RULA+EPP">RULA + EPP (Análisis Híbrido)</option>
+                            <option value="REBA+EPP">REBA + EPP (Análisis Híbrido)</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn-primary">Iniciar Monitoreo</button>
+                </form>
+            </section>
+
+            <section class="glass-panel" id="cameras-panel">
+                <h2>Cámaras Activas</h2>
+                <div id="cameras-list" class="cameras-list">
+                    <!-- Las cámaras se agregarán aquí dinámicamente -->
+                    <p class="empty-state">No hay cámaras activas en este momento.</p>
+                </div>
+            </section>
+
+            <section class="glass-panel" id="logs-panel">
+                <h2>Registro de Infracciones en Tiempo Real</h2>
+                <div class="table-container">
+                    <table id="logs-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha/Hora</th>
+                                <th>Trabajador</th>
+                                <th>Método</th>
+                                <th>Puntaje</th>
+                                <th>Riesgo</th>
+                                <th>Duración</th>
+                                <th>Documento</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logs-body">
+                            <tr>
+                                <td colspan="7" class="empty-state">Esperando detecciones...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="/static/app.js"></script>
+</body>
+</html>

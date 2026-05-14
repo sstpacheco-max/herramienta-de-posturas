@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+pydantic
+opencv-python
+mediapipe
+requests
+python-docx
+deepface
+tf-keras
