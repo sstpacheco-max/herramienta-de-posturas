@@ -106,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const canvasCtx = canvasElement.getContext('2d');
 
                 const pose = new Pose({locateFile: (file) => {
-                    return \`https://cdn.jsdelivr.net/npm/@mediapipe/pose/\${file}\`;
+                    return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
                 }});
                 
                 pose.setOptions({
