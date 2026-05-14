@@ -83,21 +83,75 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         
         if (isGitHubPages) {
-            alert('Atención: Estás en la versión pública de GitHub (Modo Demo).\n\nPara que la Inteligencia Artificial analice la cámara, debes ejecutar el sistema localmente en tu PC (python main.py) y entrar a http://localhost:8000');
             modalCamera.style.display = 'none';
             
-            // Simulación visual básica (solo muestra la cámara sin IA)
-            navigator.mediaDevices.getUserMedia({ video: true })
-                .then(stream => {
-                    activeCamerasViewport.innerHTML = `
-                        <div class="video-wrapper" style="width: 100%; height: 100%; position: relative;">
-                            <video autoplay playsinline style="width: 100%; height: 100%; object-fit: contain;"></video>
-                            <button class="stop-floating" onclick="window.location.reload()" style="position: absolute; top: 10px; right: 10px; background: rgba(255,0,0,0.5); border: none; color: white; cursor: pointer; padding: 5px 10px; border-radius: 4px;">DETENER</button>
-                        </div>
-                    `;
-                    activeCamerasViewport.querySelector('video').srcObject = stream;
-                })
-                .catch(err => console.error('Error webcam demo:', err));
+            // Simulación visual con MediaPipe JS
+            activeCamerasViewport.innerHTML = `
+                <div class="video-wrapper" style="width: 100%; height: 100%; position: relative;">
+                    <video id="web-video" autoplay playsinline style="display: none;"></video>
+                    <canvas id="web-canvas" style="width: 100%; height: 100%; object-fit: contain; border-radius: 8px;"></canvas>
+                    <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,230,118,0.8); padding: 5px 10px; border-radius: 4px; font-weight: bold; color: black; font-size: 0.8rem;">
+                        <span class="blink">●</span> RASTREO IA WEB ACTIVO
+                    </div>
+                    <button class="stop-floating" onclick="window.location.reload()" style="position: absolute; top: 10px; right: 10px; background: rgba(255,0,0,0.5); border: none; color: white; cursor: pointer; padding: 5px 10px; border-radius: 4px;">DETENER</button>
+                </div>
+            `;
+            
+            const videoElement = document.getElementById('web-video');
+            const canvasElement = document.getElementById('web-canvas');
+            const canvasCtx = canvasElement.getContext('2d');
+
+            const pose = new Pose({locateFile: (file) => {
+                return \`https://cdn.jsdelivr.net/npm/@mediapipe/pose/\${file}\`;
+            }});
+            
+            pose.setOptions({
+                modelComplexity: 1,
+                smoothLandmarks: true,
+                enableSegmentation: false,
+                smoothSegmentation: false,
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
+            });
+            
+            pose.onResults((results) => {
+                // Ajustar tamaño del canvas al video real para mantener proporción
+                if (canvasElement.width !== videoElement.videoWidth) {
+                    canvasElement.width = videoElement.videoWidth;
+                    canvasElement.height = videoElement.videoHeight;
+                }
+                
+                canvasCtx.save();
+                canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+                canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+                
+                if (results.poseLandmarks) {
+                    drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {color: '#00e676', lineWidth: 4});
+                    drawLandmarks(canvasCtx, results.poseLandmarks, {color: '#ff4d4d', lineWidth: 2, radius: 3});
+                    
+                    // Simular alerta de postura si la nariz está muy abajo
+                    const nose = results.poseLandmarks[0];
+                    if (nose && nose.y > 0.6) {
+                        canvasCtx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+                        canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
+                        document.getElementById('system-status-text').textContent = 'ALERTA: POSTURA CRÍTICA';
+                        document.getElementById('system-status-text').style.color = '#ff4d4d';
+                    } else {
+                        document.getElementById('system-status-text').textContent = 'RASTREO WEB ACTIVO';
+                        document.getElementById('system-status-text').style.color = '#00e676';
+                    }
+                }
+                canvasCtx.restore();
+            });
+
+            const camera = new Camera(videoElement, {
+                onFrame: async () => {
+                    await pose.send({image: videoElement});
+                },
+                width: 640,
+                height: 480
+            });
+            camera.start();
                 
             return;
         }
