@@ -100,22 +100,25 @@ body {
 /* --- Layout Grid --- */
 .dashboard-grid {
     display: grid;
-    grid-template-columns: 220px 1fr 220px; /* Aún más estrecho */
+    grid-template-columns: 240px 1fr 240px;
     gap: 0.5rem;
     padding: 0.5rem;
-    min-height: calc(100vh - 45px);
+    height: calc(100vh - 45px); /* Altura fija para forzar el ajuste */
+    overflow: hidden;
 }
 
 .side-panel {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-rows: repeat(3, 1fr); /* Divide en 3 partes iguales */
     gap: 0.5rem;
+    height: 100%;
 }
 
 .main-viewport {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-rows: 1fr 150px; /* Video arriba (flexible), Info abajo (fijo) */
     gap: 0.5rem;
+    height: 100%;
 }
 
 /* --- Glass Cards --- */
@@ -124,11 +127,12 @@ body {
     backdrop-filter: blur(12px);
     border: 1px solid var(--glass-border);
     border-radius: 10px;
-    padding: 0.6rem;
+    padding: 0.5rem; /* Even smaller */
     display: flex;
     flex-direction: column;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
     min-height: 0;
+    height: 100%; /* Fill the grid cell */
 }
 
 .card-header {
@@ -174,8 +178,8 @@ body {
 
 .chart-mini {
     flex-grow: 1;
-    min-height: 50px;
-    max-height: 80px; /* Limit height */
+    min-height: 40px;
+    max-height: 70px;
     background: rgba(0, 0, 0, 0.2);
     border-radius: 8px;
     padding: 2px;
@@ -259,7 +263,7 @@ body {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0.5rem;
-    min-height: 120px; /* Reduced from 180px */
+    height: 100%; /* Fill the 150px row */
 }
 
 /* --- EPP & Alerts --- */
