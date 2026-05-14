@@ -81,6 +81,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     cameraForm.onsubmit = async (e) => {
         e.preventDefault();
+        
+        if (isGitHubPages) {
+            alert('Atención: Estás en la versión pública de GitHub (Modo Demo).\n\nPara que la Inteligencia Artificial analice la cámara, debes ejecutar el sistema localmente en tu PC (python main.py) y entrar a http://localhost:8000');
+            modalCamera.style.display = 'none';
+            
+            // Simulación visual básica (solo muestra la cámara sin IA)
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    activeCamerasViewport.innerHTML = `
+                        <div class="video-wrapper" style="width: 100%; height: 100%; position: relative;">
+                            <video autoplay playsinline style="width: 100%; height: 100%; object-fit: contain;"></video>
+                            <button class="stop-floating" onclick="window.location.reload()" style="position: absolute; top: 10px; right: 10px; background: rgba(255,0,0,0.5); border: none; color: white; cursor: pointer; padding: 5px 10px; border-radius: 4px;">DETENER</button>
+                        </div>
+                    `;
+                    activeCamerasViewport.querySelector('video').srcObject = stream;
+                })
+                .catch(err => console.error('Error webcam demo:', err));
+                
+            return;
+        }
+
         const url = document.getElementById('camera-url').value;
         const method = document.getElementById('method').value;
 
@@ -89,8 +110,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (res.ok) {
                 modalCamera.style.display = 'none';
                 renderActiveCameras(url);
+            } else {
+                alert('Error al iniciar la cámara en el servidor local.');
             }
-        } catch (err) { console.error(err); }
+        } catch (err) { 
+            console.error(err); 
+            alert('No se pudo conectar con el backend. ¿Está corriendo main.py?');
+        }
     };
 
     function renderActiveCameras(url) {
