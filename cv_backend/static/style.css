@@ -101,25 +101,27 @@ body {
 /* --- Layout Grid --- */
 .dashboard-grid {
     display: grid;
-    grid-template-columns: 240px 1fr 240px;
-    gap: 0.5rem;
-    padding: 0.5rem;
-    height: calc(100vh - 45px); /* Altura fija para forzar el ajuste */
+    grid-template-columns: 200px 1fr 200px; /* Más estrecho aún */
+    gap: 0.4rem;
+    padding: 0.4rem;
+    height: calc(100vh - 45px);
     overflow: hidden;
 }
 
 .side-panel {
     display: grid;
-    grid-template-rows: repeat(3, 1fr); /* Divide en 3 partes iguales */
-    gap: 0.5rem;
+    grid-template-rows: repeat(3, minmax(0, 1fr)); /* Permite encogerse */
+    gap: 0.4rem;
     height: 100%;
+    min-height: 0;
 }
 
 .main-viewport {
     display: grid;
-    grid-template-rows: 1fr 150px; /* Video arriba (flexible), Info abajo (fijo) */
-    gap: 0.5rem;
+    grid-template-rows: minmax(0, 1fr) 110px; /* Fila inferior más pequeña */
+    gap: 0.4rem;
     height: 100%;
+    min-height: 0;
 }
 
 /* --- Glass Cards --- */
@@ -127,13 +129,13 @@ body {
     background: var(--card-bg);
     backdrop-filter: blur(12px);
     border: 1px solid var(--glass-border);
-    border-radius: 10px;
-    padding: 0.4rem; /* Even smaller */
+    border-radius: 8px;
+    padding: 0.4rem;
     display: flex;
     flex-direction: column;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
     min-height: 0;
-    height: 100%;
+    overflow: hidden; /* Evita que el contenido empuje el borde */
 }
 
 .card-header {
@@ -144,10 +146,11 @@ body {
 }
 
 .card-header h3 {
-    font-size: 0.75rem; /* Reduced from 0.85rem */
+    font-size: 0.65rem; /* Más pequeño */
     text-transform: uppercase;
     letter-spacing: 0.5px;
     color: var(--text-primary);
+    white-space: nowrap;
 }
 
 .more-options {
@@ -179,8 +182,8 @@ body {
 
 .chart-mini {
     flex-grow: 1;
-    min-height: 40px;
-    max-height: 70px;
+    min-height: 30px;
+    max-height: 60px;
     background: rgba(0, 0, 0, 0.2);
     border-radius: 8px;
     padding: 2px;
