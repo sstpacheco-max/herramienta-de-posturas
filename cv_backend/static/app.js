@@ -5,6 +5,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnCloseModal = document.getElementById('btn-close-modal');
     const cameraForm = document.getElementById('camera-form');
     
+    // --- Modo Demo para GitHub Pages ---
+    const isGitHubPages = window.location.hostname.includes('github.io');
+    if (isGitHubPages) {
+        document.getElementById('system-status-text').textContent = 'MODO DEMO (Visual)';
+        document.getElementById('active-cameras-viewport').innerHTML = `
+            <div style="text-align: center; height: 100%; display: flex; flex-direction: column; justify-content: center;">
+                <img src="preview.png" style="max-height: 85%; max-width: 100%; object-fit: contain; border-radius: 8px; box-shadow: 0 0 20px rgba(0,0,0,0.5);">
+                <p style="margin-top: 5px; font-size: 0.8rem; color: var(--accent-blue);">Simulación en tiempo real activa</p>
+            </div>
+        `;
+        // Iniciar simulación de datos para demo
+        setInterval(simulateDemoData, 3000);
+    }
+
     // --- Gráficos (Chart.js) ---
     const chartOptions = {
         responsive: true,
@@ -90,6 +104,53 @@ document.addEventListener('DOMContentLoaded', () => {
         await fetch(`/api/stop-stream?camera_url=${encodeURIComponent(url)}`, { method: 'POST' });
         activeCamerasViewport.innerHTML = '<p class="empty-state">No hay cámaras activas. Haz clic en + para iniciar.</p>';
     };
+
+    function simulateDemoData() {
+        const workers = ["Operario 1", "Operario 2", "Montacarguista", "Supervisor"];
+        const alerts = [
+            { msg: "Falta Casco", type: "high" },
+            { msg: "Postura Crítica", type: "critical" },
+            { msg: "Falta Chaleco", type: "high" },
+            { msg: "Área Restringida", type: "critical" }
+        ];
+
+        const randomWorker = workers[Math.floor(Math.random() * workers.length)];
+        const randomAlert = alerts[Math.floor(Math.random() * alerts.length)];
+
+        // Actualizar Alertas
+        const ticker = document.getElementById('alerts-ticker');
+        const li = document.createElement('li');
+        li.className = `alert-item ${randomAlert.type}`;
+        li.innerHTML = `
+            <span class="alert-msg">Alerta: ${randomAlert.msg} - ${randomWorker}</span>
+            <span class="alert-time">${new Date().toLocaleTimeString()}</span>
+        `;
+        ticker.prepend(li);
+        if (ticker.children.length > 5) ticker.lastChild.remove();
+
+        // Actualizar EPP
+        const eppList = document.getElementById('epp-status-list');
+        eppList.innerHTML = `
+            <div class="worker-epp">
+                <span class="worker-name">${randomWorker}</span>
+                <div class="epp-items">
+                    <span class="item ${Math.random() > 0.3 ? 'ok' : 'fail'}">⛑️ Casco</span>
+                    <span class="item ${Math.random() > 0.2 ? 'ok' : 'fail'}">🦺 Chaleco</span>
+                </div>
+            </div>
+            <div class="worker-epp">
+                <span class="worker-name">Trabajador B</span>
+                <div class="epp-items">
+                    <span class="item ok">⛑️ Casco</span>
+                    <span class="item fail">🥽 Lentes</span>
+                </div>
+            </div>
+        `;
+
+        // Actualizar Stats
+        document.getElementById('stat-incidents').textContent = Math.floor(Math.random() * 50) + 10;
+        document.getElementById('stat-criticals').textContent = Math.floor(Math.random() * 10);
+    }
 
     // --- Actualización de Datos (Polling) ---
     async function updateDashboard() {
