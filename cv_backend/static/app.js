@@ -82,82 +82,84 @@ document.addEventListener('DOMContentLoaded', () => {
     cameraForm.onsubmit = async (e) => {
         e.preventDefault();
         
+        const url = document.getElementById('camera-url').value;
+        const method = document.getElementById('method').value;
+
         if (isGitHubPages) {
             modalCamera.style.display = 'none';
             
-            // Simulación visual con MediaPipe JS
-            activeCamerasViewport.innerHTML = `
-                <div class="video-wrapper" style="width: 100%; height: 100%; position: relative;">
-                    <video id="web-video" autoplay playsinline style="display: none;"></video>
-                    <canvas id="web-canvas" style="width: 100%; height: 100%; object-fit: contain; border-radius: 8px;"></canvas>
-                    <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,230,118,0.8); padding: 5px 10px; border-radius: 4px; font-weight: bold; color: black; font-size: 0.8rem;">
-                        <span class="blink">●</span> RASTREO IA WEB ACTIVO
+            if (url === '0' || url === '') {
+                // Simulación visual con MediaPipe JS para Cámara Local
+                activeCamerasViewport.innerHTML = `
+                    <div class="video-wrapper" style="width: 100%; height: 100%; position: relative;">
+                        <video id="web-video" autoplay playsinline style="display: none;"></video>
+                        <canvas id="web-canvas" style="width: 100%; height: 100%; object-fit: contain; border-radius: 8px;"></canvas>
+                        <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,230,118,0.8); padding: 5px 10px; border-radius: 4px; font-weight: bold; color: black; font-size: 0.8rem;">
+                            <span class="blink">●</span> RASTREO IA WEB ACTIVO
+                        </div>
+                        <button class="stop-floating" onclick="window.location.reload()" style="position: absolute; top: 10px; right: 10px; background: rgba(255,0,0,0.5); border: none; color: white; cursor: pointer; padding: 5px 10px; border-radius: 4px;">DETENER</button>
                     </div>
-                    <button class="stop-floating" onclick="window.location.reload()" style="position: absolute; top: 10px; right: 10px; background: rgba(255,0,0,0.5); border: none; color: white; cursor: pointer; padding: 5px 10px; border-radius: 4px;">DETENER</button>
-                </div>
-            `;
-            
-            const videoElement = document.getElementById('web-video');
-            const canvasElement = document.getElementById('web-canvas');
-            const canvasCtx = canvasElement.getContext('2d');
+                `;
+                
+                const videoElement = document.getElementById('web-video');
+                const canvasElement = document.getElementById('web-canvas');
+                const canvasCtx = canvasElement.getContext('2d');
 
-            const pose = new Pose({locateFile: (file) => {
-                return \`https://cdn.jsdelivr.net/npm/@mediapipe/pose/\${file}\`;
-            }});
-            
-            pose.setOptions({
-                modelComplexity: 1,
-                smoothLandmarks: true,
-                enableSegmentation: false,
-                smoothSegmentation: false,
-                minDetectionConfidence: 0.5,
-                minTrackingConfidence: 0.5
-            });
-            
-            pose.onResults((results) => {
-                // Ajustar tamaño del canvas al video real para mantener proporción
-                if (canvasElement.width !== videoElement.videoWidth) {
-                    canvasElement.width = videoElement.videoWidth;
-                    canvasElement.height = videoElement.videoHeight;
-                }
+                const pose = new Pose({locateFile: (file) => {
+                    return \`https://cdn.jsdelivr.net/npm/@mediapipe/pose/\${file}\`;
+                }});
                 
-                canvasCtx.save();
-                canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-                canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+                pose.setOptions({
+                    modelComplexity: 1,
+                    smoothLandmarks: true,
+                    enableSegmentation: false,
+                    smoothSegmentation: false,
+                    minDetectionConfidence: 0.5,
+                    minTrackingConfidence: 0.5
+                });
                 
-                if (results.poseLandmarks) {
-                    drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {color: '#00e676', lineWidth: 4});
-                    drawLandmarks(canvasCtx, results.poseLandmarks, {color: '#ff4d4d', lineWidth: 2, radius: 3});
-                    
-                    // Simular alerta de postura si la nariz está muy abajo
-                    const nose = results.poseLandmarks[0];
-                    if (nose && nose.y > 0.6) {
-                        canvasCtx.fillStyle = 'rgba(255, 0, 0, 0.3)';
-                        canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
-                        document.getElementById('system-status-text').textContent = 'ALERTA: POSTURA CRÍTICA';
-                        document.getElementById('system-status-text').style.color = '#ff4d4d';
-                    } else {
-                        document.getElementById('system-status-text').textContent = 'RASTREO WEB ACTIVO';
-                        document.getElementById('system-status-text').style.color = '#00e676';
+                pose.onResults((results) => {
+                    if (canvasElement.width !== videoElement.videoWidth) {
+                        canvasElement.width = videoElement.videoWidth;
+                        canvasElement.height = videoElement.videoHeight;
                     }
-                }
-                canvasCtx.restore();
-            });
+                    
+                    canvasCtx.save();
+                    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+                    canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+                    
+                    if (results.poseLandmarks) {
+                        drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {color: '#00e676', lineWidth: 4});
+                        drawLandmarks(canvasCtx, results.poseLandmarks, {color: '#ff4d4d', lineWidth: 2, radius: 3});
+                    }
+                    canvasCtx.restore();
+                });
 
-            const camera = new Camera(videoElement, {
-                onFrame: async () => {
-                    await pose.send({image: videoElement});
-                },
-                width: 640,
-                height: 480
-            });
-            camera.start();
-                
+                const camera = new Camera(videoElement, {
+                    onFrame: async () => {
+                        await pose.send({image: videoElement});
+                    },
+                    width: 640,
+                    height: 480
+                });
+                camera.start().catch(err => {
+                    console.error(err);
+                    alert("No se pudo acceder a la cámara de la PC. Verifica los permisos de tu navegador.");
+                });
+            } else {
+                // Es una URL de cámara IP
+                activeCamerasViewport.innerHTML = `
+                    <div class="video-wrapper" style="width: 100%; height: 100%; position: relative;">
+                        <img src="${url}" style="width: 100%; height: 100%; object-fit: contain; border-radius: 8px;" onerror="alert('Error al cargar la cámara IP. Asegúrate de que la URL sea accesible y CORS esté permitido.')">
+                        <div style="position: absolute; top: 10px; left: 10px; background: rgba(255,165,0,0.8); padding: 5px 10px; border-radius: 4px; font-weight: bold; color: black; font-size: 0.8rem;">
+                            <span class="blink">●</span> CÁMARA IP CONECTADA
+                        </div>
+                        <button class="stop-floating" onclick="window.location.reload()" style="position: absolute; top: 10px; right: 10px; background: rgba(255,0,0,0.5); border: none; color: white; cursor: pointer; padding: 5px 10px; border-radius: 4px;">DETENER</button>
+                    </div>
+                `;
+            }
             return;
         }
-
-        const url = document.getElementById('camera-url').value;
-        const method = document.getElementById('method').value;
 
         try {
             const res = await fetch(`/api/start-stream?camera_url=${encodeURIComponent(url)}&method=${encodeURIComponent(method)}`, { method: 'POST' });
