@@ -3,124 +3,215 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SST 4.0 - Computer Vision Orchestrator</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <title>SST 4.0 - Panel de Seguridad Industrial</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
 </head>
-<body>
-    <div class="background-animation"></div>
-    <div class="container">
-        <header>
-            <h1>SST 4.0</h1>
-            <p>Computer Vision Orchestrator</p>
-        </header>
-
-        <div class="dashboard-summary">
-            <div class="summary-card">
-                <div class="card-icon">⚠️</div>
-                <div class="card-info">
-                    <span class="card-label">Violaciones Totales</span>
-                    <span class="card-value" id="stat-total-violations">0</span>
-                </div>
+<body class="dashboard-active">
+    <div class="top-bar">
+        <div class="brand">
+            <span class="logo">🛡️</span>
+            <h1>PANEL DE SEGURIDAD INDUSTRIAL - VISIÓN ARTIFICIAL</h1>
+        </div>
+        <div class="system-meta">
+            <div class="status-indicator active">
+                Estado del Sistema: <span id="system-status-text">ACTIVO</span>
             </div>
-            <div class="summary-card critical">
-                <div class="card-icon">🚨</div>
-                <div class="card-info">
-                    <span class="card-label">Alertas Críticas</span>
-                    <span class="card-value" id="stat-critical-alerts">0</span>
-                </div>
-            </div>
-            <div class="summary-card">
-                <div class="card-icon">⚡</div>
-                <div class="card-info">
-                    <span class="card-label">Tiempo de Actividad</span>
-                    <span class="card-value" id="stat-uptime">0h 0m</span>
-                </div>
-            </div>
-            <div class="summary-card">
-                <div class="card-icon">🔄</div>
-                <div class="card-info">
-                    <span class="card-label">Sincronización n8n</span>
-                    <span class="card-value" id="stat-n8n-status">Conectado</span>
-                </div>
+            <div class="sensor-count">
+                Sensores: <span id="sensor-count-val">12</span>
             </div>
         </div>
-
-        <main>
-            <section class="glass-panel">
-                <h2>Registrar Nuevo Trabajador</h2>
-                <form id="register-form" style="display: flex; flex-direction: column; gap: 1rem;">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                        <div class="form-group">
-                            <label for="worker-id">Nombre / ID</label>
-                            <input type="text" id="worker-id" placeholder="Ej: Juan Perez" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="worker-photo">Foto de Referencia</label>
-                            <input type="file" id="worker-photo" accept="image/*" required>
-                        </div>
-                    </div>
-                    <button type="submit" class="btn-primary" style="margin-top: 0.5rem;">Registrar Biometría Facial</button>
-                </form>
-            </section>
-
-            <section class="glass-panel">
-                <h2>Agregar Nueva Cámara</h2>
-                <form id="camera-form">
-                    <div class="form-group">
-                        <label for="camera-url">URL de la Cámara (o 'TEST' para simulación)</label>
-                        <div style="display: flex; gap: 10px;">
-                            <input type="text" id="camera-url" placeholder="ej. http://192.168.1.100:8080/video" required>
-                            <button type="button" id="btn-local-cam" class="btn-secondary" style="width: auto; white-space: nowrap;">Cámara PC</button>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="method">Método de Análisis</label>
-                        <select id="method">
-                            <option value="RULA">RULA (Posturas del Tren Superior)</option>
-                            <option value="REBA">REBA (Cuerpo Entero)</option>
-                            <option value="EPP">EPP (Solo Implementos de Seguridad)</option>
-                            <option value="RULA+EPP">RULA + EPP (Análisis Híbrido)</option>
-                            <option value="REBA+EPP">REBA + EPP (Análisis Híbrido)</option>
-                        </select>
-                    </div>
-                    <button type="submit" class="btn-primary">Iniciar Monitoreo</button>
-                </form>
-            </section>
-
-            <section class="glass-panel" id="cameras-panel">
-                <h2>Cámaras Activas</h2>
-                <div id="cameras-list" class="cameras-list">
-                    <!-- Las cámaras se agregarán aquí dinámicamente -->
-                    <p class="empty-state">No hay cámaras activas en este momento.</p>
-                </div>
-            </section>
-
-            <section class="glass-panel" id="logs-panel">
-                <h2>Registro de Infracciones en Tiempo Real</h2>
-                <div class="table-container">
-                    <table id="logs-table">
-                        <thead>
-                            <tr>
-                                <th>Fecha/Hora</th>
-                                <th>Trabajador</th>
-                                <th>Método</th>
-                                <th>Puntaje</th>
-                                <th>Riesgo</th>
-                                <th>Duración</th>
-                                <th>Documento</th>
-                            </tr>
-                        </thead>
-                        <tbody id="logs-body">
-                            <tr>
-                                <td colspan="7" class="empty-state">Esperando detecciones...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-        </main>
+        <div class="user-controls">
+            <span class="location">📍 PLANTA PRINCIPAL</span>
+            <button class="icon-btn">🔔</button>
+            <button class="icon-btn">⚙️</button>
+        </div>
     </div>
+
+    <div class="dashboard-grid">
+        <!-- Columna Izquierda -->
+        <aside class="side-panel left">
+            <section class="glass-card section-ergonomics">
+                <div class="card-header">
+                    <h3>Rastreo Ergonómico</h3>
+                    <span class="more-options">...</span>
+                </div>
+                <div class="risk-highlight">
+                    <span class="label">Ángulo de Espalda</span>
+                    <span class="value critical" id="back-angle">Critico: 55°</span>
+                </div>
+                <div class="chart-mini" id="ergo-chart-1">
+                    <canvas id="canvas-ergo-1"></canvas>
+                </div>
+            </section>
+
+            <section class="glass-card section-tension">
+                <div class="card-header">
+                    <h3>Tensión Muscular</h3>
+                </div>
+                <div class="chart-mini" id="tension-chart">
+                    <canvas id="canvas-tension"></canvas>
+                </div>
+            </section>
+
+            <section class="glass-card section-task-duration">
+                <div class="card-header">
+                    <h3>Duración de Tarea</h3>
+                </div>
+                <div class="duration-grid">
+                    <div class="time-big" id="task-timer">00:07</div>
+                    <div class="stats-mini">
+                        <div class="stat-item">
+                            <span class="val">26%</span>
+                            <span class="lbl">Promedio</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="val">15h 26m</span>
+                            <span class="lbl">Acumulado</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </aside>
+
+        <!-- Columna Central -->
+        <main class="main-viewport">
+            <section class="glass-card section-monitor">
+                <div class="card-header">
+                    <h3>Monitoreo en Tiempo Real</h3>
+                    <div class="monitor-controls">
+                        <span class="cam-info">Cámara 1: Zona de Ensamblaje - <span id="current-time">14:32:05</span></span>
+                        <div class="view-btns">
+                            <button id="btn-add-cam">+</button>
+                            <button id="btn-grid-cam">田</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="video-feed-container" id="main-video-container">
+                    <div id="active-cameras-viewport" class="viewport-content">
+                        <p class="empty-state">No hay cámaras activas. Haz clic en + para iniciar.</p>
+                    </div>
+                </div>
+            </section>
+
+            <div class="bottom-row">
+                <section class="glass-card section-epp">
+                    <div class="card-header">
+                        <h3>Detección EPP</h3>
+                        <span class="more-options">...</span>
+                    </div>
+                    <div class="epp-status-list" id="epp-status-list">
+                        <!-- Trabajador 1 -->
+                        <div class="worker-epp">
+                            <span class="worker-name">Trabajador 1</span>
+                            <div class="epp-items">
+                                <span class="item ok">⛑️ Casco: [SI]</span>
+                                <span class="item ok">🦺 Chaleco: [SI]</span>
+                                <span class="item ok">🥽 Lentes: [SI]</span>
+                            </div>
+                        </div>
+                        <!-- Trabajador 2 -->
+                        <div class="worker-epp">
+                            <span class="worker-name">Trabajador 2</span>
+                            <div class="epp-items">
+                                <span class="item fail">⛑️ Casco: [NO]</span>
+                                <span class="item fail">🦺 Chaleco: [SI]</span>
+                                <span class="item fail">🥾 Botas: [NO]</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="glass-card section-alerts">
+                    <div class="card-header">
+                        <h3>Alertas Críticas</h3>
+                        <span class="more-options">...</span>
+                    </div>
+                    <ul class="alerts-list" id="alerts-ticker">
+                        <li class="alert-item high">
+                            <span class="alert-msg">Alerta: Falta Casco - Trabajador 2</span>
+                            <span class="alert-time">14:31:02</span>
+                        </li>
+                        <li class="alert-item critical">
+                            <span class="alert-msg">Alerta: Postura Ergonómica - Levantamiento Incorrecto</span>
+                            <span class="alert-time">14:28:45</span>
+                        </li>
+                    </ul>
+                </section>
+            </div>
+        </main>
+
+        <!-- Columna Derecha -->
+        <aside class="side-panel right">
+            <section class="glass-card section-risk-summary">
+                <div class="card-header">
+                    <h3>Resumen Diario de Riesgos</h3>
+                </div>
+                <div class="chart-mini" id="risk-summary-chart">
+                    <canvas id="canvas-risk-bar"></canvas>
+                </div>
+            </section>
+
+            <section class="glass-card section-ergo-analysis">
+                <div class="card-header">
+                    <h3>Análisis Ergonómico</h3>
+                </div>
+                <div class="risk-highlight">
+                    <span class="label">Puntuación REBA promedio</span>
+                </div>
+                <div class="chart-mini" id="ergo-analysis-chart">
+                    <canvas id="canvas-ergo-line"></canvas>
+                </div>
+            </section>
+
+            <section class="glass-card section-general-stats">
+                <div class="card-header">
+                    <h3>Estadísticas Generales</h3>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <span class="val green" id="stat-epp-pct">98%</span>
+                        <span class="lbl">Cumplimiento EPP</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="val orange" id="stat-incidents">12</span>
+                        <span class="lbl">Incidentes</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="val red" id="stat-criticals">4</span>
+                        <span class="lbl">Posturas Críticas</span>
+                    </div>
+                </div>
+            </section>
+        </aside>
+    </div>
+
+    <!-- Modales -->
+    <div id="modal-camera" class="modal">
+        <div class="modal-content glass-card">
+            <h2>Configurar Cámara</h2>
+            <form id="camera-form">
+                <div class="form-group">
+                    <label>URL o ID (0 para local)</label>
+                    <input type="text" id="camera-url" value="0">
+                </div>
+                <div class="form-group">
+                    <label>Método</label>
+                    <select id="method">
+                        <option value="RULA+EPP">RULA + EPP (Completo)</option>
+                        <option value="REBA+EPP">REBA + EPP (Completo)</option>
+                        <option value="EPP">Solo EPP</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn-glow">INICIAR STREAM</button>
+                    <button type="button" id="btn-close-modal">CANCELAR</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="/static/app.js"></script>
 </body>
 </html>
