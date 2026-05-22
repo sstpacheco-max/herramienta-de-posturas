@@ -89,6 +89,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Audio Alarm (AudioContext) ---
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // Desbloquear audio en móviles (requiere interacción del usuario)
+    function unlockAudio() {
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+    }
+    document.body.addEventListener('click', unlockAudio, { once: true });
+    document.body.addEventListener('touchstart', unlockAudio, { once: true });
+
     function playAlarmSound() {
         if (audioCtx.state === 'suspended') audioCtx.resume();
         const osc = audioCtx.createOscillator();
