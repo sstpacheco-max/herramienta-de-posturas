@@ -6,18 +6,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnCloseModal = document.getElementById('btn-close-modal');
     const cameraForm = document.getElementById('camera-form');
     
-    // --- Modo Demo para GitHub Pages ---
+    // --- Firebase Initialization ---
+    const firebaseConfig = {
+        apiKey: "AIzaSyDAp8r9ZDRTY_3BHWtl-N9qtb0VsFTqV-w",
+        authDomain: "deteccion-de-posturas-y-epps.firebaseapp.com",
+        databaseURL: "https://deteccion-de-posturas-y-epps-default-rtdb.firebaseio.com",
+        projectId: "deteccion-de-posturas-y-epps",
+        storageBucket: "deteccion-de-posturas-y-epps.firebasestorage.app",
+        messagingSenderId: "553248719917",
+        appId: "1:553248719917:web:9ae9df2504acf21441a4a4"
+    };
+
+    // Inicializar Firebase
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+    
+    // Detectamos si es GitHub Pages para ocultar el reproductor local
     const isGitHubPages = window.location.hostname.includes('github.io');
     if (isGitHubPages) {
-        document.getElementById('system-status-text').textContent = 'MODO DEMO (Visual)';
+        document.getElementById('system-status-text').textContent = 'MODO REMOTO (Firebase)';
         document.getElementById('active-cameras-viewport').innerHTML = `
             <div style="text-align: center; height: 100%; display: flex; flex-direction: column; justify-content: center;">
-                <img src="preview.png" style="max-height: 85%; max-width: 100%; object-fit: contain; border-radius: 8px; box-shadow: 0 0 20px rgba(0,0,0,0.5);">
-                <p style="margin-top: 5px; font-size: 0.8rem; color: var(--accent-blue);">Simulación en tiempo real activa</p>
+                <p style="margin-top: 5px; font-size: 1rem; color: var(--accent-blue);">🖥️ Conectado remotamente vía Firebase.</p>
+                <p style="font-size: 0.8rem; color: gray;">El video en vivo se procesa en el servidor local. Este panel muestra alertas y métricas en tiempo real.</p>
             </div>
         `;
-        // Iniciar simulación de datos para demo
-        setInterval(simulateDemoData, 3000);
     }
 
     // --- Gráficos (Chart.js) ---
@@ -73,6 +86,74 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         options: chartOptions
     });
+
+    // --- Audio Alarm (AudioContext) ---
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playAlarmSound() {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(800, audioCtx.currentTime); // 800Hz
+        osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
+        
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); // Volumen al 10%
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+        
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.5);
+    }
+
+    // --- Firebase Listeners ---
+    function initFirebaseListeners() {
+        console.log("Iniciando listeners de Firebase...");
+        const alertsRef = database.ref('alerts').orderByChild('timestamp').limitToLast(5);
+        
+        let initialDataLoaded = false;
+        
+        alertsRef.on('child_added', (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+            
+            if (initialDataLoaded) {
+                // Visual Flash de alerta
+                document.body.style.boxShadow = "inset 0 0 50px rgba(255,0,0,0.8)";
+                setTimeout(() => document.body.style.boxShadow = "none", 500);
+
+                // Alarma Sonora
+                if(data.risk === 'Alto' || data.risk === 'Critico') {
+                    playAlarmSound();
+                }
+            }
+            
+            // Actualizar interfaz
+            updateAlerts([data], true);
+            updateEPPStatus([data], true);
+        });
+
+        alertsRef.once('value', () => {
+            initialDataLoaded = true;
+        });
+
+        // Listener global de stats
+        database.ref('stats').on('value', (snapshot) => {
+            const stats = snapshot.val();
+            if (stats) {
+                document.getElementById('stat-incidents').textContent = stats.total_violations || 0;
+                document.getElementById('stat-criticals').textContent = stats.critical_alerts || 0;
+                
+                const dist = stats.risk_distribution || {};
+                riskBarChart.data.datasets[0].data = [dist.Bajo || 0, dist.Medio || 0, dist.Alto || 0, dist.Critico || 0];
+                riskBarChart.update();
+            }
+        });
+    }
+    
+    initFirebaseListeners();
 
     // --- Funciones de UI ---
     if (btnAddCam) btnAddCam.onclick = () => modalCamera.style.display = 'flex';
@@ -181,68 +262,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 <img src="/api/video-feed?camera_url=${encodeURIComponent(url)}" style="width: 100%; height: 100%; object-fit: contain;">
                 <button class="stop-floating" onclick="stopStream('${url}')" style="position: absolute; top: 10px; right: 10px; background: rgba(255,0,0,0.5); border: none; color: white; cursor: pointer; padding: 5px 10px; border-radius: 4px;">DETENER</button>
             </div>
-        `;
+        \`;
     }
-
     window.stopStream = async (url) => {
         await fetch(`/api/stop-stream?camera_url=${encodeURIComponent(url)}`, { method: 'POST' });
         activeCamerasViewport.innerHTML = '<p class="empty-state">No hay cámaras activas. Haz clic en + para iniciar.</p>';
     };
 
-    function simulateDemoData() {
-        const workers = ["Operario 1", "Operario 2", "Montacarguista", "Supervisor"];
-        const alerts = [
-            { msg: "Falta Casco", type: "high" },
-            { msg: "Postura Crítica", type: "critical" },
-            { msg: "Falta Chaleco", type: "high" },
-            { msg: "Área Restringida", type: "critical" }
-        ];
-
-        const randomWorker = workers[Math.floor(Math.random() * workers.length)];
-        const randomAlert = alerts[Math.floor(Math.random() * alerts.length)];
-
-        // Actualizar Alertas
-        const ticker = document.getElementById('alerts-ticker');
-        const li = document.createElement('li');
-        li.className = `alert-item ${randomAlert.type}`;
-        li.innerHTML = `
-            <span class="alert-msg">Alerta: ${randomAlert.msg} - ${randomWorker}</span>
-            <span class="alert-time">${new Date().toLocaleTimeString()}</span>
-        `;
-        ticker.prepend(li);
-        if (ticker.children.length > 5) ticker.lastChild.remove();
-
-        // Actualizar EPP
-        const eppList = document.getElementById('epp-status-list');
-        eppList.innerHTML = `
-            <div class="worker-epp">
-                <span class="worker-name">${randomWorker}</span>
-                <div class="epp-items">
-                    <span class="item ${Math.random() > 0.3 ? 'ok' : 'fail'}">⛑️ Casco</span>
-                    <span class="item ${Math.random() > 0.2 ? 'ok' : 'fail'}">🦺 Chaleco</span>
-                </div>
-            </div>
-            <div class="worker-epp">
-                <span class="worker-name">Trabajador B</span>
-                <div class="epp-items">
-                    <span class="item ok">⛑️ Casco</span>
-                    <span class="item fail">🥽 Lentes</span>
-                </div>
-            </div>
-        `;
-
-        // Actualizar Stats
-        document.getElementById('stat-incidents').textContent = Math.floor(Math.random() * 50) + 10;
-        document.getElementById('stat-criticals').textContent = Math.floor(Math.random() * 10);
-    }
-
-    // --- Actualización de Datos (Polling) ---
+    // --- Actualización de Datos (Polling para Estadísticas Globales local) ---
     async function updateDashboard() {
+        if (isGitHubPages) return;
         try {
-            const [statusRes, statsRes, logsRes] = await Promise.all([
+            const [statusRes, statsRes] = await Promise.all([
                 fetch('/api/status'),
-                fetch('/api/stats'),
-                fetch('/api/logs')
+                fetch('/api/stats')
             ]);
 
             if (statsRes.ok) {
@@ -252,14 +285,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Actualizar gráficos con datos reales
                 const dist = stats.risk_distribution;
-                riskBarChart.data.datasets[0].data = [dist.Bajo, dist.Medio, dist.Alto, dist.Critico];
+                riskBarChart.data.datasets[0].data = [dist.Bajo || 0, dist.Medio || 0, dist.Alto || 0, dist.Critico || 0];
                 riskBarChart.update();
-            }
-
-            if (logsRes.ok) {
-                const logs = await logsRes.json();
-                updateAlerts(logs);
-                updateEPPStatus(logs);
             }
 
             // Simular movimiento en gráficos mini para efecto visual
@@ -268,37 +295,48 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) { console.error(e); }
     }
 
-    function updateAlerts(logs) {
+    function updateAlerts(logs, prepend=false) {
         const ticker = document.getElementById('alerts-ticker');
-        ticker.innerHTML = '';
-        logs.reverse().slice(0, 5).forEach(log => {
+        if(!prepend) ticker.innerHTML = '';
+        
+        logs.slice(0, 5).forEach(log => {
             const li = document.createElement('li');
             li.className = `alert-item ${log.risk.toLowerCase() === 'critico' ? 'critical' : 'high'}`;
             li.innerHTML = `
                 <span class="alert-msg">Alerta: ${log.method} - ${log.worker_id}</span>
                 <span class="alert-time">${new Date(log.timestamp).toLocaleTimeString()}</span>
+                ${log.legal_doc ? `<a href="/api/download-doc?path=${encodeURIComponent(log.legal_doc)}" target="_blank" style="margin-left:10px; color:#fff; text-decoration:underline; font-size:12px;">📄 PDF</a>` : ''}
             `;
-            ticker.appendChild(li);
+            if(prepend) {
+                ticker.prepend(li);
+                if (ticker.children.length > 5) ticker.lastChild.remove();
+            } else {
+                ticker.appendChild(li);
+            }
         });
     }
 
-    function updateEPPStatus(logs) {
+    function updateEPPStatus(logs, prepend=false) {
         const eppList = document.getElementById('epp-status-list');
-        // Aquí podríamos agrupar por trabajador, por ahora mostramos los últimos 2 detectados
-        const latest = logs.slice(-2);
+        const latest = logs.slice(0, 2);
         if (latest.length > 0) {
-            eppList.innerHTML = '';
+            if(!prepend) eppList.innerHTML = '';
             latest.forEach(log => {
                 const div = document.createElement('div');
                 div.className = 'worker-epp';
-                const isCrit = log.risk === 'Critico';
+                const isCrit = log.risk === 'Critico' || log.risk === 'Alto';
                 div.innerHTML = `
                     <span class="worker-name">${log.worker_id}</span>
                     <div class="epp-items">
                         <span class="item ${isCrit ? 'fail' : 'ok'}">${isCrit ? '⚠️' : '✅'} RIESGO: ${log.risk}</span>
                     </div>
                 `;
-                eppList.appendChild(div);
+                if(prepend) {
+                    eppList.prepend(div);
+                    if (eppList.children.length > 3) eppList.lastChild.remove();
+                } else {
+                    eppList.appendChild(div);
+                }
             });
         }
     }
@@ -320,6 +358,16 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('current-time').textContent = new Date().toLocaleTimeString();
     }
 
-    setInterval(updateDashboard, 2000);
+    if (!isGitHubPages) {
+        fetch('/api/logs').then(r=>r.json()).then(logs => {
+            if (logs && logs.length > 0) {
+                updateAlerts(logs.reverse());
+                updateEPPStatus(logs);
+            }
+        }).catch(e => console.log("Logs locales no disponibles"));
+    }
+    
+    setInterval(updateDashboard, 5000);
+    setInterval(updateMiniCharts, 1000);
     updateDashboard();
 });

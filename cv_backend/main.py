@@ -1,10 +1,12 @@
-import cv2, json, requests, time, threading, os, numpy as np
+import cv2, json, requests, time, threading, os, numpy as np, winsound, asyncio
+from dotenv import load_dotenv
+import db_manager as dbm
 import ergonomics_engine as erg
 import biometry_engine as bio
 import legal_engine as leg
 import epp_engine as epp
 import mediapipe as mp
-from fastapi import FastAPI, BackgroundTasks, UploadFile, File, Form
+from fastapi import FastAPI, BackgroundTasks, UploadFile, File, Form, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, StreamingResponse
 from datetime import datetime
@@ -13,7 +15,37 @@ app = FastAPI(title="SST 4.0 - Computer Vision Orquestador")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 
-LOCATION = "PLANTA PRINCIPAL - SECTOR PROCESOS" # Ubicacion por defecto
+load_dotenv()
+LOCATION = os.getenv("LOCATION", "PLANTA PRINCIPAL - SECTOR PROCESOS") # Ubicacion por defecto
+
+main_loop = None
+
+@app.on_event("startup")
+async def startup_event():
+    global main_loop
+    main_loop = asyncio.get_running_loop()
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: str):
+        for connection in self.active_connections:
+            try:
+                await connection.send_text(message)
+            except:
+                pass
+
+manager = ConnectionManager()
+
 
 # ─── Estado Global ────────────────────────────────────────────────────────────
 active_streams  = {}  # camera_url -> last JPEG bytes
@@ -30,6 +62,25 @@ system_stats = {
     "session_start": datetime.now().isoformat(),
 }
 
+# --- Firebase Integración ---
+FIREBASE_URL = "https://deteccion-de-posturas-y-epps-default-rtdb.firebaseio.com"
+
+def firebase_stats_loop():
+    while True:
+        try:
+            with stats_lock:
+                stats_copy = {
+                    "total_violations": system_stats["total_violations"],
+                    "critical_alerts": system_stats["critical_alerts"],
+                    "risk_distribution": system_stats["risk_distribution"].copy()
+                }
+            requests.put(f"{FIREBASE_URL}/stats.json", json=stats_copy, timeout=5)
+        except Exception as e:
+            pass
+        time.sleep(3)
+
+threading.Thread(target=firebase_stats_loop, daemon=True).start()
+
 # ─── MediaPipe ────────────────────────────────────────────────────────────────
 MODEL_PATH   = os.path.join(BASE_DIR, "pose_landmarker.task")
 HAS_MEDIAPIPE = False
@@ -45,7 +96,7 @@ except Exception as e:
 from biometry_engine import HAS_DEEPFACE
 
 # ─── n8n Webhook ──────────────────────────────────────────────────────────────
-WEBHOOK_URL = "https://n8n-n8n.y3jjap.easypanel.host/webhook-test/sst-alerts"
+WEBHOOK_URL = os.getenv("N8N_WEBHOOK_URL", "https://n8n-n8n.y3jjap.easypanel.host/webhook-test/sst-alerts")
 n8n_status  = {"last_sent": None, "success": 0, "errors": 0}
 
 def send_n8n_webhook(worker_id, method, score, risk, camera_url, doc_path, duration):
@@ -124,20 +175,30 @@ def draw_marionette(image, landmarks, color):
             cv2.line(image, pts[s], pts[e], color, 3)
 
 def log_event(camera_url, worker_id, method, score, risk, doc_path, duration=0):
-    event = {
+    dbm.log_event(camera_url, worker_id, method, score, risk, doc_path, duration)
+    
+    event_data = {
         "timestamp": datetime.now().isoformat(),
-        "camera": camera_url, "worker_id": worker_id,
-        "method": method, "score": score, "risk": risk,
-        "duration": f"{duration}s", "legal_doc": doc_path,
+        "camera": camera_url,
+        "worker_id": worker_id,
+        "method": method,
+        "score": score,
+        "risk": risk,
+        "duration": f"{duration}s",
+        "legal_doc": doc_path
     }
-    try:
-        lf = os.path.join(BASE_DIR, "sst_log_eventos.json")
-        logs = []
-        if os.path.exists(lf):
-            with open(lf, "r") as f: logs = json.load(f)
-        logs.append(event)
-        with open(lf, "w") as f: json.dump(logs, f, indent=4)
-    except: pass
+    
+    # Push to Firebase
+    def _send_fb():
+        try:
+            requests.post(f"{FIREBASE_URL}/alerts.json", json=event_data, timeout=3)
+        except Exception as e:
+            print(f"Firebase Alert Error: {e}")
+    threading.Thread(target=_send_fb, daemon=True).start()
+
+    if main_loop and main_loop.is_running():
+        asyncio.run_coroutine_threadsafe(manager.broadcast(json.dumps(event_data)), main_loop)
+
 
 # ─── Video Processing ─────────────────────────────────────────────────────────
 def process_video_stream(camera_url: str, method: str = "RULA"):
@@ -214,6 +275,7 @@ def process_video_stream(camera_url: str, method: str = "RULA"):
 
         # Alerta sostenida
         if risk in ["Alto", "Critico"]:
+            winsound.Beep(1500, 200) # Sonido de alerta en servidor
             if violation_start is None: violation_start = time.time()
             duration = int(time.time() - violation_start)
             h, w = image.shape[:2]
@@ -245,6 +307,16 @@ def process_video_stream(camera_url: str, method: str = "RULA"):
     print(f"STREAM: Detenido {camera_url}")
 
 # ─── API Endpoints ────────────────────────────────────────────────────────────
+
+@app.websocket("/ws/alerts")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
 @app.get("/", response_class=HTMLResponse)
 def read_root():
     with open(os.path.join(BASE_DIR, "static", "index.html"), "r", encoding="utf-8") as f:
@@ -294,12 +366,7 @@ def video_feed(camera_url: str):
 
 @app.get("/api/logs")
 def get_logs():
-    lf = os.path.join(BASE_DIR, "sst_log_eventos.json")
-    if os.path.exists(lf):
-        try:
-            with open(lf, "r") as f: return json.load(f)[-20:]
-        except: return []
-    return []
+    return dbm.get_recent_logs(20)
 
 @app.post("/api/start-stream")
 def start_stream(camera_url: str, method: str = "RULA",
