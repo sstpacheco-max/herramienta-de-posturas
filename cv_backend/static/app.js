@@ -1,4 +1,25 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // --- Autenticación y Sesión SaaS ---
+    const userSessionStr = sessionStorage.getItem('sst_user');
+    if (!userSessionStr) {
+        window.location.href = '/static/login.html';
+        return;
+    }
+    const currentUser = JSON.parse(userSessionStr);
+    const companyId = currentUser.company_id;
+    
+    // Mostrar nombre del cliente y usuario en la barra superior
+    document.querySelector('.location').textContent = `📍 ${currentUser.company_name}`;
+    document.querySelector('.user-controls').insertAdjacentHTML('afterbegin', `
+        <span style="font-size: 0.8rem; color: var(--text-muted); margin-right: 10px;">👤 ${currentUser.username} (${currentUser.role})</span>
+        <button id="btn-logout" class="icon-btn" style="font-size: 0.8rem; margin-right: 15px; color: var(--accent-red);">🚪 Salir</button>
+    `);
+    
+    document.getElementById('btn-logout').onclick = () => {
+        sessionStorage.removeItem('sst_user');
+        window.location.reload();
+    };
+
     const activeCamerasViewport = document.getElementById('active-cameras-viewport');
     const modalCamera = document.getElementById('modal-camera');
     const btnAddCam = document.getElementById('btn-add-cam');
@@ -252,17 +273,35 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // Registrar la cámara en la base de datos SaaS antes de iniciar el stream
         try {
-            const res = await fetch(`/api/start-stream?camera_url=${encodeURIComponent(url)}&method=${encodeURIComponent(method)}`, { method: 'POST' });
-            if (res.ok) {
-                modalCamera.style.display = 'none';
-                renderActiveCameras(url);
+            const camFormData = new FormData();
+            camFormData.append('company_id', companyId);
+            camFormData.append('name', `Camara ${url}`);
+            camFormData.append('stream_url', url);
+            camFormData.append('location', currentUser.company_name);
+            
+            const addCamRes = await fetch('/api/cameras/add', {
+                method: 'POST',
+                body: camFormData
+            });
+            const addCamData = await addCamRes.json();
+            
+            if (addCamData.status === 'success') {
+                const cameraDbId = addCamData.camera_id;
+                const res = await fetch(`/api/start-stream?camera_url=${cameraDbId}&method=${encodeURIComponent(method)}`, { method: 'POST' });
+                if (res.ok) {
+                    modalCamera.style.display = 'none';
+                    renderActiveCameras(cameraDbId);
+                } else {
+                    alert('Error al iniciar la cámara en el servidor local.');
+                }
             } else {
-                alert('Error al iniciar la cámara en el servidor local.');
+                alert('Error al registrar la cámara en la base de datos: ' + addCamData.message);
             }
-        } catch (err) { 
-            console.error(err); 
-            alert('No se pudo conectar con el backend. ¿Está corriendo main.py?');
+        } catch (err) {
+            console.error(err);
+            alert('No se pudo conectar con el backend.');
         }
     };
 
@@ -285,7 +324,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const [statusRes, statsRes] = await Promise.all([
                 fetch('/api/status'),
-                fetch('/api/stats')
+                fetch(`/api/stats?company_id=${companyId}`)
             ]);
 
             if (statsRes.ok) {
@@ -369,7 +408,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (!isGitHubPages) {
-        fetch('/api/logs').then(r=>r.json()).then(logs => {
+        fetch(`/api/logs?company_id=${companyId}`).then(r=>r.json()).then(logs => {
             if (logs && logs.length > 0) {
                 updateAlerts(logs.reverse());
                 updateEPPStatus(logs);

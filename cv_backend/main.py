@@ -177,9 +177,16 @@ def draw_marionette(image, landmarks, color):
         if s in pts and e in pts:
             cv2.line(image, pts[s], pts[e], color, 3)
 
-def log_event(camera_url, worker_id, method, score, risk, doc_path, duration=0):
+def log_event(camera_url, worker_id, method, score, risk, doc_path, duration=0, company_id=1, camera_id=1):
     dbm.log_event(camera_url, worker_id, method, score, risk, doc_path, duration)
     
+    # Registrar en base de datos SaaS
+    try:
+        import saas_db as sdb
+        sdb.log_saas_alert(company_id, camera_id, worker_id, method, risk, doc_path, doc_path)
+    except Exception as e:
+        print(f"Error guardando alerta en SaaS DB: {e}")
+        
     event_data = {
         "timestamp": datetime.now().isoformat(),
         "camera": camera_url,
@@ -206,11 +213,30 @@ def log_event(camera_url, worker_id, method, score, risk, doc_path, duration=0):
 # ─── Video Processing ─────────────────────────────────────────────────────────
 def process_video_stream(camera_url: str, method: str = "RULA"):
     print(f"STREAM: Iniciando {camera_url} [{method}]")
-    source = int(camera_url) if camera_url.isdigit() else camera_url
-
+    
+    # Determinar si camera_url es un ID de la base de datos SaaS
+    company_id = 1 # Por defecto Planta Alfa
+    camera_id = 1
+    source = camera_url
+    
+    if camera_url.isdigit():
+        try:
+            import saas_db as sdb
+            cam = sdb.get_camera(int(camera_url))
+            if cam:
+                source = int(cam["stream_url"]) if cam["stream_url"].isdigit() else cam["stream_url"]
+                company_id = cam["company_id"]
+                camera_id = cam["id"]
+                print(f"SaaS DB: Camara encontrada '{cam['name']}' para Empresa ID {company_id}, fuente: {source}")
+            else:
+                source = int(camera_url)
+        except Exception as e:
+            print(f"Error leyendo de saas_db: {e}")
+            source = int(camera_url)
+            
     cap = cv2.VideoCapture(source)
     if not cap.isOpened():
-        print(f"ERROR: No se pudo abrir {camera_url}")
+        print(f"ERROR: No se pudo abrir {source}")
         active_cameras.pop(camera_url, None)
         return
 
@@ -308,7 +334,7 @@ def process_video_stream(camera_url: str, method: str = "RULA"):
                 
                 details = epp_results["missing"] if epp_results else None
                 doc_path = leg.create_document_draft(current_worker, current_worker, method, risk, evidence_path=ev_path, details=details)
-                log_event(camera_url, current_worker, method, score, risk, doc_path, duration)
+                log_event(camera_url, current_worker, method, score, risk, doc_path, duration, company_id=company_id, camera_id=camera_id)
                 send_n8n_webhook(current_worker, method, score, risk, camera_url, doc_path, duration)
                 last_alert_time = time.time()
         else:
@@ -359,7 +385,14 @@ def get_status():
     }
 
 @app.get("/api/stats")
-def get_stats():
+def get_stats(company_id: int = None):
+    if company_id is not None:
+        try:
+            import saas_db as sdb
+            return sdb.get_company_stats(company_id)
+        except Exception as e:
+            print(f"SaaS Stats Error: {e}")
+            
     with stats_lock:
         top_workers = sorted(
             [{"id": k, "violations": v}
@@ -382,8 +415,47 @@ def video_feed(camera_url: str):
     return StreamingResponse(generate(), media_type="multipart/x-mixed-replace; boundary=frame")
 
 @app.get("/api/logs")
-def get_logs():
+def get_logs(company_id: int = None):
+    if company_id is not None:
+        try:
+            import saas_db as sdb
+            return sdb.get_recent_alerts(company_id, 20)
+        except Exception as e:
+            print(f"SaaS Logs Error: {e}")
     return dbm.get_recent_logs(20)
+
+# ─── SaaS Autenticación y Gestión ───────────────────────────────────────────
+
+@app.post("/api/auth/login")
+async def login(username: str = Form(...), password: str = Form(...)):
+    import saas_db as sdb
+    user = sdb.authenticate_user(username, password)
+    if user:
+        return {"status": "success", "user": user}
+    return {"status": "error", "message": "Usuario o contrasena incorrectos."}
+
+@app.post("/api/auth/register")
+async def register(
+    company_name: str = Form(...), 
+    license_key: str = Form(...), 
+    username: str = Form(...), 
+    password: str = Form(...), 
+    email: str = Form(None)
+):
+    import saas_db as sdb
+    res = sdb.register_company_and_admin(company_name, license_key, username, password, email)
+    return res
+
+@app.get("/api/cameras")
+def get_cameras(company_id: int):
+    import saas_db as sdb
+    return sdb.get_cameras(company_id)
+
+@app.post("/api/cameras/add")
+def add_camera(company_id: int = Form(...), name: str = Form(...), stream_url: str = Form(...), location: str = Form(...)):
+    import saas_db as sdb
+    cam_id = sdb.add_camera(company_id, name, stream_url, location)
+    return {"status": "success", "camera_id": cam_id}
 
 @app.post("/api/start-stream")
 def start_stream(camera_url: str, method: str = "RULA",
