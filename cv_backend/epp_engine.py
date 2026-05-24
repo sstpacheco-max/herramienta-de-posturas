@@ -66,12 +66,15 @@ def detect_epp(frame, person_bbox=None):
 
             if person_bbox:
                 x1, y1, x2, y2 = map(int, person_bbox)
-                # Expandir un poco el bbox para asegurar que no corta el casco
                 h, w = frame.shape[:2]
-                x1 = max(0, x1 - 50)
-                y1 = max(0, y1 - 80)
-                x2 = min(w, x2 + 50)
-                y2 = min(h, y2 + 50)
+                person_h = y2 - y1
+                person_w = x2 - x1
+                
+                # Expandir dinámicamente basado en la altura/anchura de la persona
+                x1 = max(0, x1 - int(person_w * 0.25))
+                y1 = max(0, y1 - int(person_h * 0.45)) # 45% hacia arriba para asegurar que incluye el casco entero
+                x2 = min(w, x2 + int(person_w * 0.25))
+                y2 = min(h, y2 + int(person_h * 0.15))
                 
                 roi = frame_enhanced[y1:y2, x1:x2]
                 if roi.size > 0:
