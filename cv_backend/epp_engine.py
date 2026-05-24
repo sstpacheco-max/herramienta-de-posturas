@@ -1,40 +1,34 @@
 import cv2
 import numpy as np
+import os
+try:
+    from ultralytics import YOLO
+except ImportError:
+    YOLO = None
 
-# Configuración de EPPs con rangos de color HSV
-EPP_CONFIG = {
-    "Casco": {
-        "region": "top",
-        "colors": [
-            (np.array([0, 0, 180]),   np.array([180, 40, 255])),  # Blanco
-            (np.array([20, 80, 150]), np.array([35, 255, 255])),  # Amarillo
-            (np.array([100, 80, 80]), np.array([130, 255, 255])), # Azul
-            (np.array([0, 100, 100]), np.array([10, 255, 255])),  # Rojo
-        ],
-        "threshold": 0.04,
-        "risk_weight": 3
-    },
-    "Chaleco Reflectivo": {
-        "region": "torso",
-        "colors": [
-            (np.array([5, 150, 150]),  np.array([20, 255, 255])), # Naranja
-            (np.array([20, 120, 120]), np.array([38, 255, 255])), # Amarillo
-            (np.array([40, 80, 100]),  np.array([80, 255, 255])), # Verde
-        ],
-        "threshold": 0.05,
-        "risk_weight": 2
-    },
-    "Guantes": {
-        "region": "hands",
-        "colors": [
-            (np.array([100, 80, 80]), np.array([130, 255, 255])), # Azul
-            (np.array([35, 80, 80]),  np.array([85, 255, 255])),  # Verde
-            (np.array([20, 80, 150]), np.array([35, 255, 255])),  # Amarillo
-        ],
-        "threshold": 0.02,
-        "risk_weight": 1
-    }
-}
+# Rutas del modelo
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, "best_ppe_nano.pt")
+
+# Variables globales del modelo
+_model = None
+_model_coco = None
+
+def get_yolo_model():
+    global _model, _model_coco
+    if _model_coco is None and YOLO is not None:
+        try:
+            _model_coco = YOLO("yolov8n.pt")
+        except:
+            pass
+
+    if _model is None and YOLO is not None and os.path.exists(MODEL_PATH):
+        try:
+            _model = YOLO(MODEL_PATH)
+            print(f"SISTEMA: Modelo YOLO EPP NANO cargado exitosamente. Clases: {_model.names}")
+        except Exception as e:
+            print(f"Error cargando YOLO EPP: {e}")
+    return _model
 
 RISK_TABLE = [
     (0, "Insignificante", 0),
@@ -46,49 +40,129 @@ RISK_TABLE = [
 
 def detect_epp(frame, person_bbox=None):
     """
-    Detecta EPPs en el frame usando análisis de color HSV.
-    person_bbox: (x1, y1, x2, y2) opcional para limitar región de análisis.
+    Detecta EPPs en el frame usando YOLOv8.
+    person_bbox: (x1, y1, x2, y2) opcional para filtrar detecciones dentro de la persona.
     Retorna dict con detected, missing, risk, score.
     """
-    h, w = frame.shape[:2]
-    x1, y1 = (person_bbox[0], person_bbox[1]) if person_bbox else (0, 0)
-    x2, y2 = (person_bbox[2], person_bbox[3]) if person_bbox else (w, h)
-    ph = max(y2 - y1, 1)
+    model = get_yolo_model()
+    
+    # Valores por defecto si no hay modelo o falla
+    detected_list = []
+    missing_list = ["Casco", "Guantes", "Calzado", "Gafas", "Mascarilla"]
+    details = {"Casco": False, "Guantes": False, "Calzado": False, "Gafas": False, "Mascarilla": False}
+    missing_weight = 7 # 3(Casco) + 1(Guantes) + 1(Calzado) + 1(Gafas) + 1(Mascarilla)
+    raw_boxes = []
 
-    regions = {
-        "top":   frame[y1 : y1 + int(ph * 0.30), x1:x2],
-        "torso": frame[y1 + int(ph * 0.20) : y1 + int(ph * 0.70), x1:x2],
-        "hands": frame[y1 + int(ph * 0.55) : y2, x1:x2],
-    }
+    if model is not None:
+        try:
+            # Cortar la imagen a la persona si existe bbox
+            # Mejorar contraste con CLAHE porque la cámara del usuario es monocromática
+            lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+            l_channel, a, b = cv2.split(lab)
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+            cl = clahe.apply(l_channel)
+            limg = cv2.merge((cl,a,b))
+            frame_enhanced = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
 
-    details = {}
-    detected_list, missing_list = [], []
-    missing_weight = 0
+            if person_bbox:
+                x1, y1, x2, y2 = map(int, person_bbox)
+                # Expandir un poco el bbox para asegurar que no corta el casco
+                h, w = frame.shape[:2]
+                x1 = max(0, x1 - 50)
+                y1 = max(0, y1 - 80)
+                x2 = min(w, x2 + 50)
+                y2 = min(h, y2 + 50)
+                
+                roi = frame_enhanced[y1:y2, x1:x2]
+                if roi.size > 0:
+                    results = model.predict(roi, conf=0.10, iou=0.4, verbose=False)
+                    if _model_coco:
+                        res_coco = _model_coco.predict(roi, conf=0.25, verbose=False)
+                else:
+                    results = []
+            else:
+                results = model.predict(frame_enhanced, conf=0.10, iou=0.4, verbose=False)
+                if _model_coco:
+                    res_coco = _model_coco.predict(frame, conf=0.25, verbose=False)
 
-    for epp_name, cfg in EPP_CONFIG.items():
-        region = regions.get(cfg["region"])
-        if region is None or region.size == 0:
-            details[epp_name] = False
-            missing_list.append(epp_name)
-            missing_weight += cfg["risk_weight"]
-            continue
+            if _model_coco and len(res_coco) > 0:
+                for b in res_coco[0].boxes:
+                    c_id = int(b.cls[0].item())
+                    n = _model_coco.names[c_id]
+                    bx1, by1, bx2, by2 = b.xyxy[0].tolist()
+                    if person_bbox:
+                        bx1 += x1; bx2 += x1
+                        by1 += y1; by2 += y1
+                    raw_boxes.append((int(bx1), int(by1), int(bx2), int(by2), f"COCO:{n}"))
 
-        hsv = cv2.cvtColor(region, cv2.COLOR_BGR2HSV)
-        total = region.shape[0] * region.shape[1]
-        found = False
+            if len(results) > 0:
+                boxes = results[0].boxes
+                names = model.names
+                
+                # Reseteamos todo a falso para procesar las detecciones
+                details = {"Casco": False, "Guantes": False, "Calzado": False, "Gafas": False, "Mascarilla": False}
+                missing_list = []
+                missing_weight = 0
 
-        for lower, upper in cfg["colors"]:
-            mask = cv2.inRange(hsv, lower, upper)
-            if total > 0 and cv2.countNonZero(mask) / total > cfg["threshold"]:
-                found = True
-                break
+                for box in boxes:
+                    cls_id = int(box.cls[0].item())
+                    name = names[cls_id].lower()
+                    
+                    if "helmet" in name or "hardhat" in name or "casco" in name:
+                        if not "no_" in name and not "no-" in name:
+                            details["Casco"] = True
+                    if "glove" in name:
+                        if not "no_" in name and not "no-" in name:
+                            details["Guantes"] = True
+                    if "shoes" in name or "boot" in name:
+                        if not "no_" in name and not "no-" in name:
+                            details["Calzado"] = True
+                    if "goggle" in name or "glass" in name:
+                        if not "no_" in name and not "no-" in name:
+                            details["Gafas"] = True
+                    if "mask" in name:
+                        if not "no_" in name and not "no-" in name:
+                            details["Mascarilla"] = True
+                    
+                    bx1, by1, bx2, by2 = box.xyxy[0].tolist()
+                    if person_bbox:
+                        bx1 += x1; bx2 += x1
+                        by1 += y1; by2 += y1
+                    raw_boxes.append((int(bx1), int(by1), int(bx2), int(by2), name))
 
-        details[epp_name] = found
-        if found:
-            detected_list.append(epp_name)
-        else:
-            missing_list.append(epp_name)
-            missing_weight += cfg["risk_weight"]
+                # Construir listas finales basado en lo encontrado
+                if details["Casco"]:
+                    detected_list.append("Casco")
+                else:
+                    missing_list.append("Casco")
+                    missing_weight += 3
+
+                if details["Guantes"]:
+                    detected_list.append("Guantes")
+                else:
+                    missing_list.append("Guantes")
+                    missing_weight += 1
+
+                if details["Calzado"]:
+                    detected_list.append("Calzado")
+                else:
+                    missing_list.append("Calzado")
+                    missing_weight += 1
+
+                if details["Gafas"]:
+                    detected_list.append("Gafas")
+                else:
+                    missing_list.append("Gafas")
+                    missing_weight += 1
+
+                if details["Mascarilla"]:
+                    detected_list.append("Mascarilla")
+                else:
+                    missing_list.append("Mascarilla")
+                    missing_weight += 1
+
+        except Exception as e:
+            print(f"Error en inferencia YOLO: {e}")
 
     risk, score = "Insignificante", 0
     for threshold, r, s in RISK_TABLE:
@@ -97,11 +171,19 @@ def detect_epp(frame, person_bbox=None):
             break
 
     return {"detected": detected_list, "missing": missing_list,
-            "details": details, "risk": risk, "score": score}
-
+            "details": details, "risk": risk, "score": score, "raw_boxes": raw_boxes}
 
 def draw_epp_results(image, epp_results, y_offset=160):
     """Dibuja los resultados EPP sobre el frame."""
+    # Dibujar raw boxes de YOLO para debug visual
+    for (x1, y1, x2, y2, name) in epp_results.get("raw_boxes", []):
+        if name.startswith("COCO:"):
+            color = (255, 255, 0) # Cyan para COCO
+        else:
+            color = (255, 0, 255) if "no_" in name else (0, 255, 0)
+        cv2.rectangle(image, (x1, y1), (x2, y2), color, 2)
+        cv2.putText(image, name, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+
     for name, found in epp_results.get("details", {}).items():
         color  = (0, 200, 80) if found else (0, 50, 255)
         symbol = "OK" if found else "NO"

@@ -24,6 +24,9 @@ main_loop = None
 async def startup_event():
     global main_loop
     main_loop = asyncio.get_running_loop()
+    # Precargar el modelo YOLO para EPP
+    print("SISTEMA: Cargando modelo YOLO para EPP (esto puede tomar unos segundos)...")
+    epp.get_yolo_model()
 
 class ConnectionManager:
     def __init__(self):
@@ -237,6 +240,10 @@ def process_video_stream(camera_url: str, method: str = "RULA"):
         # --- Overlay de Tiempo y Lugar ---
         now = datetime.now()
         timestamp_str = now.strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Clonar imagen limpia antes de dibujar los textos gigantes para pasarsela a YOLO
+        image_clean = image.copy()
+        
         cv2.putText(image, f"{timestamp_str} | {LOCATION}", (20, image.shape[0] - 20),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
 
@@ -261,8 +268,17 @@ def process_video_stream(camera_url: str, method: str = "RULA"):
                 cv2.putText(image, "ESPERANDO PERSONA...", (20, 80),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200,200,200), 1)
 
+        # Extraer bounding box de la persona si hay landmarks
+        person_bbox = None
+        if use_pose and landmarker and result.pose_landmarks:
+            h, w = image.shape[:2]
+            x_coords = [lm.x * w for lm in result.pose_landmarks[0]]
+            y_coords = [lm.y * h for lm in result.pose_landmarks[0]]
+            person_bbox = (min(x_coords), min(y_coords), max(x_coords), max(y_coords))
+
         if use_epp:
-            epp_results = epp.detect_epp(image)
+            # Pasar la imagen original SIN TEXTOS DIBUJADOS para que YOLO no se confunda
+            epp_results = epp.detect_epp(image_clean, person_bbox=person_bbox)
             image = epp.draw_epp_results(image, epp_results, y_offset=160)
             if epp_results["score"] > score:
                 score, risk = epp_results["score"], epp_results["risk"]
@@ -290,7 +306,8 @@ def process_video_stream(camera_url: str, method: str = "RULA"):
                 ev_path = os.path.join(ev_dir, f"ev_{current_worker}_{int(time.time())}.jpg")
                 cv2.imwrite(ev_path, image)
                 
-                doc_path = leg.create_document_draft(current_worker, current_worker, method, risk, evidence_path=ev_path)
+                details = epp_results["missing"] if epp_results else None
+                doc_path = leg.create_document_draft(current_worker, current_worker, method, risk, evidence_path=ev_path, details=details)
                 log_event(camera_url, current_worker, method, score, risk, doc_path, duration)
                 send_n8n_webhook(current_worker, method, score, risk, camera_url, doc_path, duration)
                 last_alert_time = time.time()

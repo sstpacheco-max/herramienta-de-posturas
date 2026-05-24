@@ -106,7 +106,7 @@ def create_pdf_report(worker_id, worker_name, worker_full_name, method, risk_lev
         print(f"ERROR: Fallo al generar PDF con imagen: {e}")
         return None
 
-def create_document_draft(worker_id, worker_name, method, risk_level, evidence_path=""):
+def create_document_draft(worker_id, worker_name, method, risk_level, evidence_path="", details=None):
     """Genera el reporte oficial en PDF con todos los detalles solicitados."""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     classification = classify_violation(method, risk_level)
@@ -114,11 +114,23 @@ def create_document_draft(worker_id, worker_name, method, risk_level, evidence_p
     # Nombre amigable para el reporte
     worker_full_name = worker_name.replace("_", " ").title()
     
+    # Construir descripción dinámica con normatividad
     description = (f"El dia {timestamp}, el sistema de inteligencia artificial detecto un evento de "
-                   f"incumplimiento de normas de Seguridad y Salud en el Trabajo. "
-                   f"El trabajador fue identificado realizando una postura de riesgo '{risk_level}' "
-                   f"utilizando el metodo de analisis {method}. "
-                   f"Este documento sirve como notificacion formal y registro de evidencia.")
+                   f"incumplimiento de normas de Seguridad y Salud en el Trabajo.\n\n")
+
+    if "EPP" in method:
+        epp_missing = ", ".join(details) if details else "elementos obligatorios"
+        description += (f"HECHOS: El trabajador fue identificado sin el uso adecuado de los siguientes Elementos "
+                        f"de Proteccion Personal (EPP): {epp_missing}. El nivel de riesgo detectado es '{risk_level}'.\n\n"
+                        f"NORMATIVA INCUMPLIDA: Resolucion 2400 de 1979 (Art. 176 - 177) y el Decreto 1072 de 2015, "
+                        f"que establecen el uso obligatorio de los Elementos de Proteccion Personal suministrados por el empleador.\n\n")
+    else:
+        description += (f"HECHOS: El trabajador fue identificado realizando una postura biomecanica de riesgo '{risk_level}' "
+                        f"segun el metodo de analisis {method.replace('+EPP','')}.\n\n"
+                        f"NORMATIVA INCUMPLIDA: Resolucion 2844 de 2007 (GATISO para Desordenes Musculoesqueleticos) "
+                        f"y el Sistema de Gestion SST (Decreto 1072 de 2015) frente a la prevencion de riesgo biomecanico.\n\n")
+
+    description += "Este documento sirve como notificacion formal y registro de evidencia de la condicion subestandar."
     
     # Generar PDF (Oficial)
     pdf_path = create_pdf_report(worker_id, worker_name, worker_full_name, method, risk_level, timestamp, classification, description, evidence_path)

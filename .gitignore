@@ -19,3 +19,7 @@ cv_backend/db_rostros/
 # OS
 .DS_Store
 Thumbs.db
+
+# Database
+*.db
+*.pt
