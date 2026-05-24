@@ -43,7 +43,7 @@ def init_db():
             created_at TEXT NOT NULL,
             FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
         )
-    ''''
+    ''')
     
     # 3. Tabla de Cámaras asociadas a cada empresa
     cursor.execute('''
