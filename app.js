@@ -309,6 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 eppList.appendChild(div);
             });
         }
+    }
             // Funciones Matemáticas Biomecánicas para la versión Online Web
     function calculateAngle3D(p1, p2, p3) {
         if (!p1 || !p2 || !p3) return 0;
