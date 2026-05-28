@@ -12,11 +12,13 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('system-status-text').textContent = 'MODO DEMO (Visual)';
         document.getElementById('active-cameras-viewport').innerHTML = `
             <div style="text-align: center; height: 100%; display: flex; flex-direction: column; justify-content: center;">
-                <img src="preview.png" style="max-height: 85%; max-width: 100%; object-fit: contain; border-radius: 8px; box-shadow: 0 0 20px rgba(0,0,0,0.5);">
-                <p style="margin-top: 5px; font-size: 0.8rem; color: var(--accent-blue);">Simulación en tiempo real activa</p>
+                <p style="margin-top: 5px; font-size: 0.9rem; color: var(--text-muted);">El sistema está listo. Haz clic en ➕ para iniciar tu cámara.</p>
             </div>
         `;
-        // Iniciar simulación de datos para demo
+        // Limpiamos alertas de prueba iniciales
+        document.getElementById('alerts-ticker').innerHTML = '';
+        
+        // Iniciar simulación de estadísticas base (sin spam de alertas)
         setInterval(simulateDemoData, 3000);
     }
 
@@ -118,30 +120,48 @@ document.addEventListener('DOMContentLoaded', () => {
                     minTrackingConfidence: 0.5
                 });
                 
-                pose.onResults((results) => {
-                    if (canvasElement.width !== videoElement.videoWidth) {
-                        canvasElement.width = videoElement.videoWidth;
-                        canvasElement.height = videoElement.videoHeight;
-                    }
+                    let lastAlertTime = 0;
                     
-                    canvasCtx.save();
-                    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-                    canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
-                    
-                    if (results.poseLandmarks) {
-                        drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {color: '#00e676', lineWidth: 4});
-                        drawLandmarks(canvasCtx, results.poseLandmarks, {color: '#ff4d4d', lineWidth: 2, radius: 3});
+                    pose.onResults((results) => {
+                        if (canvasElement.width !== videoElement.videoWidth) {
+                            canvasElement.width = videoElement.videoWidth;
+                            canvasElement.height = videoElement.videoHeight;
+                        }
                         
-                        // Extraer métricas biomecánicas reales en el cliente web
-                        const metrics = calcWebBiomechanics(results.poseLandmarks);
-                        updateTelemetryCharts({
-                            score: metrics.score, // Puntuación ergonómica estimada
-                            compression: metrics.compression,
-                            com: metrics.com
-                        });
-                    }
-                    canvasCtx.restore();
-                });
+                        canvasCtx.save();
+                        canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+                        canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+                        
+                        if (results.poseLandmarks) {
+                            drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {color: '#00e676', lineWidth: 4});
+                            drawLandmarks(canvasCtx, results.poseLandmarks, {color: '#ff4d4d', lineWidth: 2, radius: 3});
+                            
+                            // Extraer métricas biomecánicas reales en el cliente web
+                            const metrics = calcWebBiomechanics(results.poseLandmarks);
+                            updateTelemetryCharts({
+                                score: metrics.score, // Puntuación ergonómica estimada
+                                compression: metrics.compression,
+                                com: metrics.com
+                            });
+                            
+                            // Generar alerta real si hay mala postura (throttle de 5 segundos)
+                            const now = Date.now();
+                            if (metrics.score >= 4 && (now - lastAlertTime > 5000)) {
+                                lastAlertTime = now;
+                                const ticker = document.getElementById('alerts-ticker');
+                                const li = document.createElement('li');
+                                const isCrit = metrics.score >= 7;
+                                li.className = `alert-item ${isCrit ? 'critical' : 'high'}`;
+                                li.innerHTML = `
+                                    <span class="alert-msg">Alerta: ${isCrit ? 'Postura Peligrosa' : 'Mala Postura'} Detectada - Cámara Web</span>
+                                    <span class="alert-time">${new Date().toLocaleTimeString()}</span>
+                                `;
+                                ticker.prepend(li);
+                                if (ticker.children.length > 5) ticker.lastChild.remove();
+                            }
+                        }
+                        canvasCtx.restore();
+                    });
 
                 const camera = new Camera(videoElement, {
                     onFrame: async () => {
@@ -207,18 +227,8 @@ document.addEventListener('DOMContentLoaded', () => {
         ];
 
         const randomWorker = workers[Math.floor(Math.random() * workers.length)];
-        const randomAlert = alerts[Math.floor(Math.random() * alerts.length)];
 
-        // Actualizar Alertas
-        const ticker = document.getElementById('alerts-ticker');
-        const li = document.createElement('li');
-        li.className = `alert-item ${randomAlert.type}`;
-        li.innerHTML = `
-            <span class="alert-msg">Alerta: ${randomAlert.msg} - ${randomWorker}</span>
-            <span class="alert-time">${new Date().toLocaleTimeString()}</span>
-        `;
-        ticker.prepend(li);
-        if (ticker.children.length > 5) ticker.lastChild.remove();
+        // (Se eliminó el código que generaba alertas falsas constantes en el ticker)
 
         // Actualizar EPP
         const eppList = document.getElementById('epp-status-list');
