@@ -55,14 +55,8 @@ def detect_epp(frame, person_bbox=None):
 
     if model is not None:
         try:
-            # Cortar la imagen a la persona si existe bbox
-            # Mejorar contraste con CLAHE porque la cámara del usuario es monocromática
-            lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
-            l_channel, a, b = cv2.split(lab)
-            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-            cl = clahe.apply(l_channel)
-            limg = cv2.merge((cl,a,b))
-            frame_enhanced = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
+            # Usar el frame original sin CLAHE para evitar distorsión de colores en YOLO
+            frame_enhanced = frame
 
             if person_bbox:
                 x1, y1, x2, y2 = map(int, person_bbox)
@@ -71,10 +65,12 @@ def detect_epp(frame, person_bbox=None):
                 person_w = x2 - x1
                 
                 # Expandir dinámicamente basado en la altura/anchura de la persona
-                x1 = max(0, x1 - int(person_w * 0.25))
-                y1 = max(0, y1 - int(person_h * 0.45)) # 45% hacia arriba para asegurar que incluye el casco entero
-                x2 = min(w, x2 + int(person_w * 0.25))
-                y2 = min(h, y2 + int(person_h * 0.15))
+                # Incrementamos drásticamente los márgenes porque si MediaPipe solo ve la cara,
+                # el casco queda fuera del ROI original.
+                x1 = max(0, x1 - int(person_w * 0.8))
+                y1 = max(0, y1 - int(person_h * 2.0)) # 200% hacia arriba para incluir el casco completo
+                x2 = min(w, x2 + int(person_w * 0.8))
+                y2 = min(h, y2 + int(person_h * 1.5)) # 150% hacia abajo para incluir el torso y manos
                 
                 roi = frame_enhanced[y1:y2, x1:x2]
                 if roi.size > 0:
@@ -83,15 +79,19 @@ def detect_epp(frame, person_bbox=None):
                         res_coco = _model_coco.predict(roi, conf=0.25, verbose=False)
                 else:
                     results = []
+                    res_coco = []
             else:
                 results = model.predict(frame_enhanced, conf=0.10, iou=0.4, verbose=False)
                 if _model_coco:
                     res_coco = _model_coco.predict(frame, conf=0.25, verbose=False)
 
+            person_found_in_coco = False
             if _model_coco and len(res_coco) > 0:
                 for b in res_coco[0].boxes:
                     c_id = int(b.cls[0].item())
                     n = _model_coco.names[c_id]
+                    if n == "person":
+                        person_found_in_coco = True
                     bx1, by1, bx2, by2 = b.xyxy[0].tolist()
                     if person_bbox:
                         bx1 += x1; bx2 += x1
@@ -163,6 +163,14 @@ def detect_epp(frame, person_bbox=None):
                 else:
                     missing_list.append("Mascarilla")
                     missing_weight += 1
+
+            # Si no pasaron un bounding box (no usamos MediaPipe) 
+            # y el modelo COCO tampoco encontró una "person", asumimos frame vacío.
+            if not person_bbox and not person_found_in_coco:
+                missing_weight = 0
+                missing_list = []
+                # Restablecemos detalles para no mostrar nada en rojo
+                details = {"Casco": True, "Guantes": True, "Calzado": True, "Gafas": True, "Mascarilla": True}
 
         except Exception as e:
             print(f"Error en inferencia YOLO: {e}")

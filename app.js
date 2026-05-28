@@ -131,6 +131,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (results.poseLandmarks) {
                         drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {color: '#00e676', lineWidth: 4});
                         drawLandmarks(canvasCtx, results.poseLandmarks, {color: '#ff4d4d', lineWidth: 2, radius: 3});
+                        
+                        // Extraer métricas biomecánicas reales en el cliente web
+                        const metrics = calcWebBiomechanics(results.poseLandmarks);
+                        updateTelemetryCharts({
+                            score: metrics.score, // Puntuación ergonómica estimada
+                            compression: metrics.compression,
+                            com: metrics.com
+                        });
                     }
                     canvasCtx.restore();
                 });
@@ -262,8 +270,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateEPPStatus(logs);
             }
 
-            // Simular movimiento en gráficos mini para efecto visual
-            updateMiniCharts();
+            // El movimiento de gráficos ahora se maneja por WebSocket (telemetría real)
+            document.getElementById('current-time').textContent = new Date().toLocaleTimeString();
 
         } catch (e) { console.error(e); }
     }
@@ -301,25 +309,124 @@ document.addEventListener('DOMContentLoaded', () => {
                 eppList.appendChild(div);
             });
         }
+            // Funciones Matemáticas Biomecánicas para la versión Online Web
+    function calculateAngle3D(p1, p2, p3) {
+        if (!p1 || !p2 || !p3) return 0;
+        const v1 = {x: p1.x - p2.x, y: p1.y - p2.y, z: p1.z - p2.z};
+        const v2 = {x: p3.x - p2.x, y: p3.y - p2.y, z: p3.z - p2.z};
+        const dot = v1.x*v2.x + v1.y*v2.y + v1.z*v2.z;
+        const mag1 = Math.sqrt(v1.x*v1.x + v1.y*v1.y + v1.z*v1.z);
+        const mag2 = Math.sqrt(v2.x*v2.x + v2.y*v2.y + v2.z*v2.z);
+        if(mag1 === 0 || mag2 === 0) return 0;
+        return Math.acos(Math.max(-1.0, Math.min(1.0, dot / (mag1 * mag2)))) * (180 / Math.PI);
     }
 
-    function updateMiniCharts() {
-        // Ergo Chart: Valor aleatorio para simular real-time
+    function calcWebBiomechanics(landmarks) {
+        if(!landmarks || landmarks.length < 26) return {com: [0.5, 0.5], compression: 0, score: 1};
+        const h_izq = landmarks[11], h_der = landmarks[12];
+        const c_izq = landmarks[23], c_der = landmarks[24];
+        const r_izq = landmarks[25];
+        
+        // Estabilograma
+        const x_com = (h_izq.x + h_der.x + c_izq.x + c_der.x) / 4.0;
+        const z_com = (h_izq.z + h_der.z + c_izq.z + c_der.z) / 4.0;
+
+        // Compresión L4/L5
+        const angle_tronco = calculateAngle3D(h_izq, c_izq, r_izq);
+        const peso_sup = 75 * 0.60;
+        const fuerza_gravedad = peso_sup * 9.81;
+        const angle_rad = Math.min(angle_tronco, 90) * (Math.PI / 180);
+        const momento_flexion = fuerza_gravedad * 0.3 * Math.sin(angle_rad);
+        const fuerza_muscular = momento_flexion / 0.05;
+        const compresion = (fuerza_gravedad * Math.cos(angle_rad)) + fuerza_muscular;
+        
+        // Puntuación RULA/REBA muy simplificada
+        let score = 2;
+        if (angle_tronco > 20) score = 4;
+        if (angle_tronco > 60) score = 7;
+
+        return {com: [x_com, z_com], compression: compresion, score: score};
+    }
+
+    // --- WebSockets y Telemetría Real-Time ---
+    const wsUrl = (window.location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + window.location.host + '/ws/alerts';
+    let ws;
+
+    function connectWebSocket() {
+        if (isGitHubPages) return;
+        
+        ws = new WebSocket(wsUrl);
+        
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'telemetry') {
+                    updateTelemetryCharts(data);
+                } else if (data.type === 'alert') {
+                    updateDashboard(); 
+                }
+            } catch(e) {}
+        };
+        
+        ws.onclose = () => {
+            setTimeout(connectWebSocket, 3000);
+        };
+    }
+
+    function drawStabilogram(comX, comZ) {
+        const canvas = document.getElementById('canvas-stabilogram');
+        if(!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width;
+        const h = canvas.height;
+        
+        ctx.clearRect(0, 0, w, h);
+        
+        // Ejes
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+        ctx.beginPath();
+        ctx.moveTo(w/2, 0); ctx.lineTo(w/2, h);
+        ctx.moveTo(0, h/2); ctx.lineTo(w, h/2);
+        ctx.stroke();
+        
+        // Mapeo (MediaPipe Z suele estar entre -1 y 1)
+        let cx = w/2 + (comX - 0.5) * w * 2; 
+        let cy = h/2 + (comZ) * h; 
+        
+        cx = Math.max(10, Math.min(w-10, cx));
+        cy = Math.max(10, Math.min(h-10, cy));
+        
+        const dist = Math.hypot(cx - w/2, cy - h/2);
+        const color = dist > (w/2)*0.6 ? '#ff4d4d' : (dist > (w/2)*0.3 ? '#ffa726' : '#00e676');
+
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = color;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 8, 0, Math.PI*2);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
+
+    function updateTelemetryCharts(data) {
+        // Ergo Chart (Score RULA/REBA)
         const ergoData = ergoChart.data.datasets[0].data;
-        ergoData.push(Math.floor(Math.random() * 40) + 20);
+        ergoData.push(data.score);
         ergoData.shift();
         ergoChart.update('none');
 
-        // Tension Chart
+        // Tension Chart (Compresión L4/L5)
         const tensionData = tensionChart.data.datasets[0].data;
-        tensionData.push(Math.floor(Math.random() * 20) + 10);
+        tensionData.push(data.compression || 0);
         tensionData.shift();
         tensionChart.update('none');
-
-        // Actualizar reloj
-        document.getElementById('current-time').textContent = new Date().toLocaleTimeString();
+        
+        if (data.com) {
+            drawStabilogram(data.com[0], data.com[1]);
+        }
     }
 
     setInterval(updateDashboard, 2000);
     updateDashboard();
+    connectWebSocket();
 });

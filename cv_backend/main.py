@@ -188,6 +188,7 @@ def log_event(camera_url, worker_id, method, score, risk, doc_path, duration=0, 
         print(f"Error guardando alerta en SaaS DB: {e}")
         
     event_data = {
+        "type": "alert",
         "timestamp": datetime.now().isoformat(),
         "camera": camera_url,
         "worker_id": worker_id,
@@ -302,6 +303,13 @@ def process_video_stream(camera_url: str, method: str = "RULA"):
             y_coords = [lm.y * h for lm in result.pose_landmarks[0]]
             person_bbox = (min(x_coords), min(y_coords), max(x_coords), max(y_coords))
 
+        # Extraer telemetría avanzada si hay postura
+        com = (0.5, 0.5)
+        compression = 0
+        if use_pose and landmarker and result.pose_landmarks:
+            com = erg.calculate_center_of_mass(result.pose_landmarks[0])
+            compression = erg.calculate_l4_l5_compression(result.pose_landmarks[0])
+
         if use_epp:
             # Pasar la imagen original SIN TEXTOS DIBUJADOS para que YOLO no se confunda
             epp_results = epp.detect_epp(image_clean, person_bbox=person_bbox)
@@ -314,6 +322,19 @@ def process_video_stream(camera_url: str, method: str = "RULA"):
             update_stats(risk, current_worker)
             active_cameras[camera_url].update(
                 {"worker": current_worker, "risk": risk, "score": score})
+            
+            # Enviar telemetría en tiempo real por WebSocket (1 FPS aprox)
+            telemetry = {
+                "type": "telemetry",
+                "camera": camera_url,
+                "worker": current_worker,
+                "score": score,
+                "risk": risk,
+                "com": com,
+                "compression": compression
+            }
+            if main_loop and main_loop.is_running():
+                asyncio.run_coroutine_threadsafe(manager.broadcast(json.dumps(telemetry)), main_loop)
 
         # Alerta sostenida
         if risk in ["Alto", "Critico"]:

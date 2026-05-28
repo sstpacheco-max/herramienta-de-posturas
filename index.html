@@ -55,10 +55,19 @@
 
             <section class="glass-card section-tension">
                 <div class="card-header">
-                    <h3>Tensión Muscular</h3>
+                    <h3>Compresión L4/L5 (N)</h3>
                 </div>
                 <div class="chart-mini" id="tension-chart">
                     <canvas id="canvas-tension"></canvas>
+                </div>
+            </section>
+
+            <section class="glass-card section-stabilogram">
+                <div class="card-header">
+                    <h3>Estabilograma</h3>
+                </div>
+                <div class="chart-mini" style="display:flex; justify-content:center; align-items:center; height:120px;">
+                    <canvas id="canvas-stabilogram" width="120" height="120" style="background: rgba(0,0,0,0.1); border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);"></canvas>
                 </div>
             </section>
 
@@ -220,6 +229,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="app.js?v=1.7"></script>
+    <script src="app.js?v=1.8"></script>
 </body>
 </html>

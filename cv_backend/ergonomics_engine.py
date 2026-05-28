@@ -88,3 +88,61 @@ def get_reba_score(landmarks):
             return reba_score, r
             
     return reba_score, "Muy Alto"
+
+def calculate_center_of_mass(landmarks):
+    """
+    Estima el Centro de Gravedad proyectado en el suelo (plano X-Z).
+    Retorna (x_com, z_com) normalizado [0, 1].
+    X es izquierda-derecha. Z es adelante-atrás.
+    """
+    if not landmarks: return 0.5, 0.5
+    try:
+        # Puntos clave MediaPipe: Hombros(11,12), Caderas(23,24)
+        hombro_izq, hombro_der = landmarks[11], landmarks[12]
+        cadera_izq, cadera_der = landmarks[23], landmarks[24]
+        
+        # Centro de masa simplificado (promedio de hombros y caderas)
+        x_com = (hombro_izq.x + hombro_der.x + cadera_izq.x + cadera_der.x) / 4.0
+        z_com = (hombro_izq.z + hombro_der.z + cadera_izq.z + cadera_der.z) / 4.0
+        
+        return float(x_com), float(z_com)
+    except:
+        return 0.5, 0.5
+
+def calculate_l4_l5_compression(landmarks, weight_kg=75):
+    """
+    Estima la compresión en el disco lumbar L4/L5 (en Newtons) 
+    basado en el ángulo de flexión del tronco.
+    Fórmula biomecánica simplificada estática.
+    """
+    if not landmarks: return 0
+    try:
+        hombro = landmarks[11] # Hombro izquierdo
+        tronco_inf = landmarks[23] # Cadera izquierda
+        rodilla = landmarks[25] # Rodilla izquierda
+        
+        # Ángulo del tronco respecto a la vertical
+        angle_tronco = calculate_angle_3d(hombro, tronco_inf, rodilla)
+        
+        # Peso corporal superior aproximado (60% del peso total)
+        peso_sup = weight_kg * 0.60
+        g = 9.81
+        fuerza_gravedad = peso_sup * g
+        
+        # Convertir ángulo a radianes para cálculos
+        angle_rad = math.radians(min(angle_tronco, 90))
+        
+        # Momento generado por la gravedad (simplificado, brazo de palanca ~ 0.3m máx)
+        momento_flexion = fuerza_gravedad * 0.3 * math.sin(angle_rad)
+        
+        # Fuerza muscular requerida (erector spinae) para contrarrestar (brazo palanca músculo ~ 0.05m)
+        fuerza_muscular = momento_flexion / 0.05
+        
+        # Compresión L4/L5 = Fuerza Gravedad (axial) + Fuerza Muscular
+        compresion = (fuerza_gravedad * math.cos(angle_rad)) + fuerza_muscular
+        
+        # Límite NIOSH suele ser ~3400 N
+        return round(float(compresion), 2)
+    except:
+        return 0
+
