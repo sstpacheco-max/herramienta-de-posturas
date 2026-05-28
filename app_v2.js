@@ -121,6 +121,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 
                     let lastAlertTime = 0;
+                    let lastEppAlertTime = 0;
+
+                    // Función heurística para detectar colores EPP (blanco, amarillo, verde, naranja brillante)
+                    function calcWebEPP(ctx, landmarks) {
+                        if(!landmarks || landmarks.length < 26) return {casco: true, chaleco: true};
+                        const w = ctx.canvas.width; const h = ctx.canvas.height;
+                        
+                        const checkZone = (x_norm, y_norm, radius) => {
+                            const cx = Math.floor(x_norm * w); const cy = Math.floor(y_norm * h);
+                            if (cx < radius || cx + radius >= w || cy < radius || cy + radius >= h) return false;
+                            try {
+                                const imgData = ctx.getImageData(cx - radius, cy - radius, radius*2, radius*2);
+                                let r=0, g=0, b=0;
+                                for(let i=0; i<imgData.data.length; i+=4) { r += imgData.data[i]; g += imgData.data[i+1]; b += imgData.data[i+2]; }
+                                const pixels = imgData.data.length / 4; r /= pixels; g /= pixels; b /= pixels;
+                                const brightness = (r + g + b) / 3;
+                                if (brightness > 180) return true; // Blanco/Claro
+                                if (r > 150 && g > 150 && b < 100) return true; // Amarillo
+                                if (r > 200 && g > 100 && b < 100) return true; // Naranja
+                                if (g > 180 && r < 100 && b < 100) return true; // Verde fluor
+                                return false;
+                            } catch(e) { return true; }
+                        };
+
+                        const nariz = landmarks[0];
+                        const h_izq = landmarks[11], h_der = landmarks[12];
+                        return {
+                            casco: checkZone(nariz.x, nariz.y - 0.15, 15),
+                            chaleco: checkZone((h_izq.x + h_der.x)/2, (h_izq.y + h_der.y)/2 + 0.15, 25)
+                        };
+                    }
                     
                     pose.onResults((results) => {
                         if (canvasElement.width !== videoElement.videoWidth) {
@@ -144,6 +175,23 @@ document.addEventListener('DOMContentLoaded', () => {
                                 com: metrics.com
                             });
                             
+                            // Detección ligera de EPP por colorimetría
+                            const epp = calcWebEPP(canvasCtx, results.poseLandmarks);
+                            
+                            // Actualizar UI de EPP en tiempo real
+                            const eppList = document.getElementById('epp-status-list');
+                            if (eppList) {
+                                eppList.innerHTML = `
+                                    <div class="worker-epp">
+                                        <span class="worker-name">Cámara Web</span>
+                                        <div class="epp-items">
+                                            <span class="item ${epp.casco ? 'ok' : 'fail'}">${epp.casco ? '✅' : '❌'} Casco</span>
+                                            <span class="item ${epp.chaleco ? 'ok' : 'fail'}">${epp.chaleco ? '✅' : '❌'} Chaleco</span>
+                                        </div>
+                                    </div>
+                                `;
+                            }
+                            
                             // Generar alerta real si hay mala postura (throttle de 5 segundos)
                             const now = Date.now();
                             if (metrics.score >= 4 && (now - lastAlertTime > 5000)) {
@@ -158,6 +206,23 @@ document.addEventListener('DOMContentLoaded', () => {
                                 `;
                                 ticker.prepend(li);
                                 if (ticker.children.length > 5) ticker.lastChild.remove();
+                            }
+
+                            // Generar alerta de falta de EPP (throttle de 6 segundos)
+                            if (!epp.casco || !epp.chaleco) {
+                                if (now - lastEppAlertTime > 6000) {
+                                    lastEppAlertTime = now;
+                                    const ticker = document.getElementById('alerts-ticker');
+                                    const li = document.createElement('li');
+                                    li.className = 'alert-item high';
+                                    const faltante = !epp.casco && !epp.chaleco ? 'Casco y Chaleco' : (!epp.casco ? 'Casco' : 'Chaleco');
+                                    li.innerHTML = `
+                                        <span class="alert-msg">Alerta: Falta ${faltante} - Cámara Web</span>
+                                        <span class="alert-time">${new Date().toLocaleTimeString()}</span>
+                                    `;
+                                    ticker.prepend(li);
+                                    if (ticker.children.length > 5) ticker.lastChild.remove();
+                                }
                             }
                         }
                         canvasCtx.restore();
