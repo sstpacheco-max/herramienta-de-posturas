@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análisis Ergonómico y EPP</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="analisis.css">
+</head>
+<body>
+    
+    <nav class="top-nav">
+        <div class="brand" onclick="window.location.href='index.html'" style="cursor: pointer;">
+            ⬅️ Volver al Panel
+        </div>
+        <div class="tabs">
+            <button class="tab-btn active" data-target="reba">REBA</button>
+            <button class="tab-btn" data-target="owas">OWAS</button>
+            <button class="tab-btn" data-target="repetitivas">REPETITIVAS</button>
+            <button class="tab-btn" data-target="epp">EPP</button>
+        </div>
+    </nav>
+
+    <div class="main-container">
+        
+        <header class="method-header">
+            <h1 id="header-title">ANÁLISIS POR MÉTODO REBA</h1>
+        </header>
+
+        <div class="content-grid">
+            
+            <!-- Columna Izquierda: Video y Resultados Generales -->
+            <div class="left-col">
+                <div class="video-container">
+                    <img src="preview.png" alt="Video Placeholder" class="video-preview" style="width:100%; height:100%; object-fit:cover;">
+                    <div class="play-btn">▶</div>
+                    <!-- Overlay simulado de EPP (oculto por defecto) -->
+                    <div id="epp-overlay" class="epp-overlay">
+                        <div class="bbox helmet-box">Casco ✅</div>
+                        <div class="bbox vest-box">Chaleco ✅</div>
+                    </div>
+                </div>
+
+                <!-- Tablas de Resultados inferiores (cambian según método) -->
+                <div id="table-reba" class="results-table active">
+                    <div class="table-row header">
+                        <div class="col">NIVEL DE RIESGO</div>
+                        <div class="col">CARGA</div>
+                        <div class="col">AGARRE</div>
+                        <div class="col">ACTIVIDAD</div>
+                    </div>
+                    <div class="table-row data">
+                        <div class="col">3</div>
+                        <div class="col">1 kg</div>
+                        <div class="col">Bueno</div>
+                        <div class="col">Estatic</div>
+                    </div>
+                </div>
+
+                <div id="table-owas" class="results-table">
+                    <div class="table-row header">
+                        <div class="col">NIVEL DE RIESGO</div>
+                        <div class="col">CARGA</div>
+                        <div class="col">AGARRE</div>
+                    </div>
+                    <div class="table-row data">
+                        <div class="col">1</div>
+                        <div class="col">5 kg</div>
+                        <div class="col">Ensamblaje de motor</div>
+                    </div>
+                </div>
+
+                <div id="table-repetitivas" class="results-table">
+                    <!-- Repetitivas puede no tener esta tabla según el mockup, o una adaptada -->
+                    <div class="table-row header">
+                        <div class="col">NIVEL DE RIESGO</div>
+                        <div class="col">TIEMPO CICLO</div>
+                        <div class="col">RECUPERACIÓN</div>
+                    </div>
+                    <div class="table-row data">
+                        <div class="col">Inaceptable</div>
+                        <div class="col">15s</div>
+                        <div class="col">Inadecuada</div>
+                    </div>
+                </div>
+
+                <div id="table-epp" class="results-table">
+                    <div class="table-row header">
+                        <div class="col">TRABAJADOR</div>
+                        <div class="col">CUMPLIMIENTO GLOBAL</div>
+                        <div class="col">ACCIÓN REQUERIDA</div>
+                    </div>
+                    <div class="table-row data">
+                        <div class="col">Operario 1</div>
+                        <div class="col" style="color: #27ae60; font-weight: bold;">100%</div>
+                        <div class="col">Ninguna</div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Columna Derecha: Detalles del método -->
+            <div class="right-col">
+                
+                <!-- VISTA REBA -->
+                <div id="view-reba" class="method-view active">
+                    <div class="section-title"><span>TRONCO</span></div>
+                    <div class="posture-grid">
+                        <div class="posture-item">
+                            <div class="model-placeholder trunk-flexion"></div>
+                            <span class="label">Flexión 20°</span>
+                            <select class="select-btn"><option>Cambiar</option></select>
+                        </div>
+                        <div class="posture-col">
+                            <div class="posture-item small">
+                                <div class="model-placeholder trunk-lateral"></div>
+                                <span class="label">Inclinación lateral</span>
+                            </div>
+                            <div class="posture-item small">
+                                <div class="model-placeholder trunk-rotation"></div>
+                                <span class="label">Rotación</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section-title"><span>CUELLO</span></div>
+                    <div class="posture-grid">
+                        <div class="posture-item">
+                            <div class="model-placeholder neck-flexion"></div>
+                            <span class="label">Flexión 30-60°</span>
+                            <select class="select-btn"><option>Cambiar</option></select>
+                        </div>
+                        <div class="posture-col">
+                            <div class="posture-item small">
+                                <div class="model-placeholder neck-lateral"></div>
+                                <span class="label">Inclinación lateral</span>
+                            </div>
+                            <div class="posture-item small">
+                                <div class="model-placeholder neck-rotation"></div>
+                                <span class="label">Rotación</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section-title"><span>PIERNAS</span></div>
+                    <div class="posture-grid cols-2">
+                        <div class="posture-item">
+                            <div class="model-placeholder leg-straight"></div>
+                            <span class="label">Flexión 30-60°</span>
+                            <select class="select-btn"><option>Cambiar</option></select>
+                        </div>
+                        <div class="posture-item">
+                            <div class="model-placeholder leg-bent"></div>
+                            <span class="label">Flexión 30-60°</span>
+                            <select class="select-btn"><option>Cambiar</option></select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VISTA OWAS -->
+                <div id="view-owas" class="method-view">
+                    <div class="section-title"><span>TRONCO</span></div>
+                    <div class="posture-grid cols-2">
+                        <div class="posture-item">
+                            <div class="model-placeholder trunk-straight"></div>
+                            <span class="label">Recto</span>
+                        </div>
+                        <div class="posture-item">
+                            <div class="model-placeholder trunk-bent"></div>
+                            <span class="label">Inclinado</span>
+                        </div>
+                    </div>
+
+                    <div class="section-title"><span>BRAZOS</span></div>
+                    <div class="posture-grid cols-2">
+                        <div class="posture-item">
+                            <div class="model-placeholder arm-down"></div>
+                            <span class="label">Ambos por debajo<br>del hombro</span>
+                        </div>
+                        <div class="posture-item">
+                            <div class="model-placeholder arm-up"></div>
+                            <span class="label">Uno por encima<br>del hombro</span>
+                        </div>
+                    </div>
+
+                    <div class="section-title"><span>PIERNAS</span></div>
+                    <div class="posture-grid cols-2">
+                        <div class="posture-item">
+                            <div class="model-placeholder leg-sit"></div>
+                            <span class="label">Sentado</span>
+                        </div>
+                        <div class="posture-item">
+                            <div class="model-placeholder leg-straight"></div>
+                            <span class="label">Las dos piernas<br>rectas</span>
+                        </div>
+                        <div class="posture-item">
+                            <div class="model-placeholder leg-one-up"></div>
+                            <span class="label">Una levantada y<br>la otra recta</span>
+                        </div>
+                        <div class="posture-item">
+                            <div class="model-placeholder leg-both-bent"></div>
+                            <span class="label">Las dos flexionadas y<br>apoyadas</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VISTA REPETITIVAS -->
+                <div id="view-repetitivas" class="method-view">
+                    <div class="section-title"><span>CUELLO</span></div>
+                    <div class="posture-grid cols-3">
+                        <div class="posture-item">
+                            <div class="model-placeholder neck-flex"></div>
+                            <span class="label">Flexión 0-10°</span>
+                            <select class="select-btn"><option>Cambiar</option></select>
+                        </div>
+                        <div class="posture-item">
+                            <div class="model-placeholder neck-lateral"></div>
+                            <span class="label">Inclinación lateral</span>
+                        </div>
+                        <div class="posture-item">
+                            <div class="model-placeholder neck-rotation"></div>
+                            <span class="label">Rotación</span>
+                        </div>
+                    </div>
+
+                    <div class="section-title"><span>ESFUERZO</span></div>
+                    <div class="effort-section">
+                        <div class="effort-indicator">
+                            <span>⏮️</span>
+                            <div class="fist-icon">✊</div>
+                            <span>⏭️</span>
+                        </div>
+                        <span class="label">Ligero (< 10% fuerza máxima)</span>
+                    </div>
+
+                    <div class="section-title"><span>BRAZO-MUÑECA</span></div>
+                    <div class="toggle-switch">
+                        <button class="toggle-btn active">Izquierdo</button>
+                        <button class="toggle-btn">Derecho</button>
+                    </div>
+                    
+                    <div class="posture-grid arm-wrist-grid">
+                        <div class="posture-item arm-section">
+                            <div class="model-placeholder arm-flex"></div>
+                        </div>
+                        <div class="arm-details">
+                            <div class="gray-badge">Brazo izquierdo</div>
+                            <span class="label">Flex. - Ext. 20°</span>
+                            <select class="select-btn"><option>Cambiar</option></select>
+                        </div>
+                    </div>
+
+                    <div class="posture-grid arm-wrist-grid mt-3">
+                        <div class="posture-item arm-section">
+                            <div class="model-placeholder wrist-flex"></div>
+                        </div>
+                        <div class="arm-details">
+                            <div class="gray-badge">Muñeca izquierdo</div>
+                            <span class="label">Flex. - Ext. 0-15°</span>
+                            <select class="select-btn"><option>Cambiar</option></select>
+                        </div>
+                    </div>
+
+                    <div class="posture-grid cols-2 mt-2">
+                        <div class="posture-item">
+                            <div class="model-placeholder wrist-lateral"></div>
+                            <span class="label">Desv. lateral</span>
+                        </div>
+                        <div class="posture-item">
+                            <div class="model-placeholder wrist-rotation"></div>
+                            <span class="label">Rotación</span>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- VISTA EPP -->
+                <div id="view-epp" class="method-view">
+                    <div class="section-title"><span>EQUIPO DE PROTECCIÓN</span></div>
+                    <div class="epp-list">
+                        <div class="epp-item ok">
+                            <div class="epp-icon">⛑️</div>
+                            <div class="epp-details">
+                                <span class="epp-name">Casco de Seguridad</span>
+                                <span class="epp-status">Detectado</span>
+                            </div>
+                        </div>
+                        <div class="epp-item ok">
+                            <div class="epp-icon">🦺</div>
+                            <div class="epp-details">
+                                <span class="epp-name">Chaleco Reflectante</span>
+                                <span class="epp-status">Detectado</span>
+                            </div>
+                        </div>
+                        <div class="epp-item fail">
+                            <div class="epp-icon">🥽</div>
+                            <div class="epp-details">
+                                <span class="epp-name">Lentes Protectores</span>
+                                <span class="epp-status">Faltante</span>
+                            </div>
+                        </div>
+                        <div class="epp-item ok">
+                            <div class="epp-icon">🧤</div>
+                            <div class="epp-details">
+                                <span class="epp-name">Guantes Industriales</span>
+                                <span class="epp-status">Detectado</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="analisis.js"></script>
+</body>
+</html>

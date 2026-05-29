@@ -95,18 +95,26 @@
         <main class="main-viewport">
             <section class="glass-card section-monitor">
                 <div class="card-header">
-                    <h3>Monitoreo en Tiempo Real</h3>
+                    <h3>Carga de Video para Análisis</h3>
                     <div class="monitor-controls">
-                        <span class="cam-info">Cámara 1: Zona de Ensamblaje - <span id="current-time">14:32:05</span></span>
-                        <div class="view-btns">
-                            <button id="btn-add-cam">+</button>
-                            <button id="btn-grid-cam">田</button>
-                        </div>
+                        <span class="cam-info">Seleccione un archivo local</span>
                     </div>
                 </div>
-                <div class="video-feed-container" id="main-video-container">
-                    <div id="active-cameras-viewport" class="viewport-content">
-                        <p class="empty-state">No hay cámaras activas. Haz clic en + para iniciar.</p>
+                <div class="video-feed-container" id="main-video-container" style="display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px dashed rgba(79, 172, 254, 0.5); cursor: pointer;" onclick="if(event.target.id !== 'video-upload') document.getElementById('video-upload').click()">
+                    <div id="upload-zone" style="text-align: center; width: 100%; padding: 2rem;">
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">📁</div>
+                        <p class="empty-state">Arrastra y suelta tu video aquí o haz clic para seleccionar</p>
+                        <input type="file" id="video-upload" accept="video/mp4,video/x-m4v,video/*" style="display: none;">
+                        <button class="btn-glow-small" style="margin-top: 1rem;">SELECCIONAR VIDEO</button>
+                    </div>
+                    <div id="loading-sim" style="display: none; text-align: center; width: 100%; padding: 2rem;">
+                        <div class="status-indicator active" style="margin-bottom: 1rem; display: inline-block;">
+                            <span>PROCESANDO IA...</span>
+                        </div>
+                        <p class="empty-state" id="loading-text">Analizando posturas y detectando EPP...</p>
+                        <div style="width: 80%; height: 4px; background: rgba(255,255,255,0.1); margin: 1rem auto; border-radius: 2px; overflow: hidden;">
+                            <div id="progress-bar" style="width: 0%; height: 100%; background: var(--accent-blue); transition: width 0.1s linear;"></div>
+                        </div>
                     </div>
                 </div>
             </section>

@@ -505,4 +505,58 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(updateDashboard, 2000);
     updateDashboard();
     connectWebSocket();
+    // --- Lógica de Carga de Video ---
+    const videoUpload = document.getElementById('video-upload');
+    const uploadZone = document.getElementById('upload-zone');
+    const loadingSim = document.getElementById('loading-sim');
+    const progressBar = document.getElementById('progress-bar');
+    const mainVideoContainer = document.getElementById('main-video-container');
+
+    if (videoUpload && uploadZone && loadingSim) {
+        // Drag and drop events
+        mainVideoContainer.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            mainVideoContainer.style.borderColor = 'var(--accent-green)';
+        });
+        mainVideoContainer.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            mainVideoContainer.style.borderColor = 'rgba(79, 172, 254, 0.5)';
+        });
+        mainVideoContainer.addEventListener('drop', (e) => {
+            e.preventDefault();
+            mainVideoContainer.style.borderColor = 'rgba(79, 172, 254, 0.5)';
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                videoUpload.files = e.dataTransfer.files;
+                startProcessing();
+            }
+        });
+
+        videoUpload.addEventListener('change', (e) => {
+            if (videoUpload.files && videoUpload.files.length > 0) {
+                startProcessing();
+            }
+        });
+
+        function startProcessing() {
+            uploadZone.style.display = 'none';
+            loadingSim.style.display = 'block';
+            mainVideoContainer.onclick = null; // Disable clicking
+            mainVideoContainer.style.cursor = 'default';
+            
+            // Simular carga e IA
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress >= 100) {
+                    progress = 100;
+                    clearInterval(interval);
+                    document.getElementById('loading-text').textContent = 'Análisis Completado. Redirigiendo...';
+                    setTimeout(() => {
+                        window.location.href = 'analisis.html';
+                    }, 1000);
+                }
+                progressBar.style.width = progress + '%';
+            }, 300);
+        }
+    }
 });
