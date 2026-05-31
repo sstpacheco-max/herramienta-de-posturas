@@ -1,5 +1,14 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const activeCamerasViewport = document.getElementById('active-cameras-viewport');
+    let activeCamerasViewport = document.getElementById('active-cameras-viewport');
+    if (!activeCamerasViewport) {
+        activeCamerasViewport = document.getElementById('main-video-container');
+        // Quitar el evento onclick de upload para que no interfiera si se usa como viewport
+        if (activeCamerasViewport) {
+            activeCamerasViewport.onclick = null;
+            activeCamerasViewport.style.cursor = 'default';
+        }
+    }
+
     const modalCamera = document.getElementById('modal-camera');
     const btnAddCam = document.getElementById('btn-add-cam');
     const btnAddCamTop = document.getElementById('btn-add-cam-top');
@@ -10,13 +19,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const isGitHubPages = window.location.hostname.includes('github.io') || window.location.protocol === 'file:';
     if (isGitHubPages) {
         document.getElementById('system-status-text').textContent = 'MODO DEMO (Visual)';
-        document.getElementById('active-cameras-viewport').innerHTML = `
-            <div style="text-align: center; height: 100%; display: flex; flex-direction: column; justify-content: center;">
-                <p style="margin-top: 5px; font-size: 0.9rem; color: var(--text-muted);">El sistema está listo. Haz clic en ➕ para iniciar tu cámara.</p>
-            </div>
-        `;
+        if (activeCamerasViewport) {
+            activeCamerasViewport.innerHTML = `
+                <div style="text-align: center; height: 100%; display: flex; flex-direction: column; justify-content: center;">
+                    <p style="margin-top: 5px; font-size: 0.9rem; color: var(--text-muted);">El sistema está listo. Haz clic en ➕ para iniciar tu cámara.</p>
+                </div>
+            `;
+        }
         // Limpiamos alertas de prueba iniciales
-        document.getElementById('alerts-ticker').innerHTML = '';
+        const ticker = document.getElementById('alerts-ticker');
+        if (ticker) ticker.innerHTML = '';
         
         // Iniciar simulación de estadísticas base (sin spam de alertas)
         setInterval(simulateDemoData, 3000);
