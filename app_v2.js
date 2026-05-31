@@ -1,19 +1,23 @@
 document.addEventListener('DOMContentLoaded', () => {
-    let activeCamerasViewport = document.getElementById('active-cameras-viewport');
-    if (!activeCamerasViewport) {
-        activeCamerasViewport = document.getElementById('main-video-container');
-        // Quitar el evento onclick de upload para que no interfiera si se usa como viewport
-        if (activeCamerasViewport) {
-            activeCamerasViewport.onclick = null;
-            activeCamerasViewport.style.cursor = 'default';
-        }
-    }
-
+    // --- Funciones de UI Iniciales (Arriba para evitar bloqueos) ---
     const modalCamera = document.getElementById('modal-camera');
     const btnAddCam = document.getElementById('btn-add-cam');
     const btnAddCamTop = document.getElementById('btn-add-cam-top');
     const btnCloseModal = document.getElementById('btn-close-modal');
     const cameraForm = document.getElementById('camera-form');
+
+    if (btnAddCam) btnAddCam.onclick = () => { if(modalCamera) modalCamera.style.display = 'flex'; };
+    if (btnAddCamTop) btnAddCamTop.onclick = () => { if(modalCamera) modalCamera.style.display = 'flex'; };
+    if (btnCloseModal) btnCloseModal.onclick = () => { if(modalCamera) modalCamera.style.display = 'none'; };
+
+    let activeCamerasViewport = document.getElementById('active-cameras-viewport');
+    if (!activeCamerasViewport) {
+        activeCamerasViewport = document.getElementById('main-video-container');
+        if (activeCamerasViewport) {
+            activeCamerasViewport.onclick = null;
+            activeCamerasViewport.style.cursor = 'default';
+        }
+    }
     
     // --- Modo Demo para GitHub Pages o Archivo Local ---
     const isGitHubPages = window.location.hostname.includes('github.io') || window.location.protocol === 'file:';
@@ -88,10 +92,8 @@ document.addEventListener('DOMContentLoaded', () => {
         options: chartOptions
     });
 
-    // --- Funciones de UI ---
-    if (btnAddCam) btnAddCam.onclick = () => modalCamera.style.display = 'flex';
-    if (btnAddCamTop) btnAddCamTop.onclick = () => modalCamera.style.display = 'flex';
-    if (btnCloseModal) btnCloseModal.onclick = () => modalCamera.style.display = 'none';
+    // --- Funciones de UI adicionales ---
+    // (Botones principales movidos al inicio del script)
 
     cameraForm.onsubmit = async (e) => {
         e.preventDefault();
