@@ -6,8 +6,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnCloseModal = document.getElementById('btn-close-modal');
     const cameraForm = document.getElementById('camera-form');
     
-    // --- Modo Demo para GitHub Pages ---
-    const isGitHubPages = window.location.hostname.includes('github.io');
+    // --- Modo Demo para GitHub Pages o Archivo Local ---
+    const isGitHubPages = window.location.hostname.includes('github.io') || window.location.protocol === 'file:';
     if (isGitHubPages) {
         document.getElementById('system-status-text').textContent = 'MODO DEMO (Visual)';
         document.getElementById('active-cameras-viewport').innerHTML = `

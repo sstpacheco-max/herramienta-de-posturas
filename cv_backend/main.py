@@ -235,7 +235,11 @@ def process_video_stream(camera_url: str, method: str = "RULA"):
             print(f"Error leyendo de saas_db: {e}")
             source = int(camera_url)
             
-    cap = cv2.VideoCapture(source)
+    if isinstance(source, int) and source == 0 and os.name == 'nt':
+        cap = cv2.VideoCapture(source, cv2.CAP_DSHOW)
+    else:
+        cap = cv2.VideoCapture(source)
+        
     if not cap.isOpened():
         print(f"ERROR: No se pudo abrir {source}")
         active_cameras.pop(camera_url, None)
