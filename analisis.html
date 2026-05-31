@@ -15,9 +15,12 @@
         </div>
         <div class="tabs">
             <button class="tab-btn active" data-target="reba">REBA</button>
+            <button class="tab-btn" data-target="rula">RULA</button>
             <button class="tab-btn" data-target="owas">OWAS</button>
-            <button class="tab-btn" data-target="repetitivas">REPETITIVAS</button>
             <button class="tab-btn" data-target="epp">EPP</button>
+        </div>
+        <div style="margin-right: 1rem;">
+            <button id="btn-generar-informe" class="tab-btn" style="background: linear-gradient(45deg, #ffa726, #ff9800); color: black; border: none; font-weight: bold; box-shadow: 0 0 10px rgba(255,167,38,0.3);">📄 GENERAR INFORME</button>
         </div>
     </nav>
 
@@ -313,6 +316,23 @@
         </div>
     </div>
 
+    <div id="modal-informe" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 200; align-items: center; justify-content: center;">
+        <div class="modal-content glass-card printable-report" style="width: 800px; max-height: 90vh; overflow-y: auto; background: var(--card-bg); padding: 2rem; border-radius: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1rem;">
+                <h2 style="margin: 0; color: #4facfe;">📋 Informe SST 4.0</h2>
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" id="btn-print-report" style="background: linear-gradient(45deg, #00e676, #00c853); color: black; border: none; padding: 0.5rem 1rem; border-radius: 4px; font-weight: bold; cursor: pointer;">🖨️ IMPRIMIR PDF</button>
+                    <button type="button" id="btn-close-informe" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;">❌</button>
+                </div>
+            </div>
+            <div id="report-body">
+                <!-- Se llena con JS -->
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="informe.js"></script>
     <script src="analisis.js"></script>
 </body>
 </html>

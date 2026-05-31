@@ -20,6 +20,7 @@
             <h1>SST 4.0 - VISIÓN ARTIFICIAL</h1>
         </div>
         <div class="system-meta">
+            <button id="btn-generar-informe" class="btn-glow-small" style="background: linear-gradient(45deg, #ffa726, #ff9800); box-shadow: 0 0 10px rgba(255,167,38,0.3); color: black;">📄 GENERAR INFORME</button>
             <button id="btn-add-cam-top" class="btn-glow-small">➕ AGREGAR CÁMARA PC</button>
             <div class="status-indicator active">
                 SISTEMA: <span id="system-status-text">ACTIVO</span>
@@ -236,7 +237,23 @@
         </div>
     </div>
 
+    <div id="modal-informe" class="modal">
+        <div class="modal-content glass-card printable-report" style="width: 800px; max-height: 90vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1rem;">
+                <h2 style="margin: 0; color: var(--accent-blue);">📋 Informe SST 4.0</h2>
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" id="btn-print-report" class="btn-glow-small">🖨️ IMPRIMIR PDF</button>
+                    <button type="button" id="btn-close-informe" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;">❌</button>
+                </div>
+            </div>
+            <div id="report-body">
+                <!-- Se llena con JS -->
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="informe.js"></script>
     <script src="app_v3.js"></script>
 </body>
 </html>

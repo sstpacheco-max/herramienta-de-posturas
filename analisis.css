@@ -348,3 +348,5 @@ body {
 .epp-status { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.2rem; }
 .epp-item.ok .epp-status { color: var(--green-ok); font-weight: 600; }
 .epp-item.fail .epp-status { color: var(--red-fail); font-weight: 600; }
+@ m e d i a   p r i n t   {   b o d y   *   {   v i s i b i l i t y :   h i d d e n ;   }   . p r i n t a b l e - r e p o r t ,   . p r i n t a b l e - r e p o r t   *   {   v i s i b i l i t y :   v i s i b l e ;   }   . p r i n t a b l e - r e p o r t   {   p o s i t i o n :   a b s o l u t e ;   l e f t :   0 ;   t o p :   0 ;   w i d t h :   1 0 0 % ;   b o x - s h a d o w :   n o n e ;   b o r d e r - r a d i u s :   0 ;   p a d d i n g :   0 ;   }   }  
+ 

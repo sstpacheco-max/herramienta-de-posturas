@@ -7,10 +7,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const methodTitles = {
         'reba': 'ANÁLISIS POR MÉTODO REBA',
+        'rula': 'ANÁLISIS POR MÉTODO RULA',
         'owas': 'ANÁLISIS POR MÉTODO OWAS',
         'repetitivas': 'ANÁLISIS POR MÉTODO REPETITIVAS',
         'epp': 'IDENTIFICACIÓN DE EPP'
     };
+
+    // Estado para el informe
+    let currentMethod = 'REBA';
 
     tabBtns.forEach(btn => {
         btn.addEventListener('click', () => {
@@ -23,6 +27,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Update title
             headerTitle.textContent = methodTitles[targetMethod];
+            if (targetMethod !== 'epp' && targetMethod !== 'repetitivas') {
+                currentMethod = targetMethod.toUpperCase();
+            }
 
             // Toggle right panel views
             methodViews.forEach(view => {
@@ -54,4 +61,14 @@ document.addEventListener('DOMContentLoaded', () => {
             // En un entorno real, esto actualizaría los datos mostrados debajo
         });
     });
+
+    if (typeof initReportModal === 'function') {
+        initReportModal(() => {
+            return {
+                method: currentMethod,
+                score: currentMethod === 'REBA' ? 7 : (currentMethod === 'RULA' ? 5 : 2), // Demo scores
+                epp: { casco: false, chaleco: true }
+            };
+        });
+    }
 });

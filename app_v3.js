@@ -19,6 +19,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
+    // --- Estado Actual para el Informe ---
+    let currentReportData = {
+        method: 'REBA',
+        score: 2,
+        epp: { casco: true, chaleco: true }
+    };
+
     // --- Modo Demo para GitHub Pages o Archivo Local ---
     const isGitHubPages = window.location.hostname.includes('github.io') || window.location.protocol === 'file:';
     if (isGitHubPages) {
@@ -183,6 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             
                             // Extraer métricas biomecánicas reales en el cliente web
                             const metrics = calcWebBiomechanics(results.poseLandmarks);
+                            currentReportData.score = metrics.score;
                             updateTelemetryCharts({
                                 score: metrics.score, // Puntuación ergonómica estimada
                                 compression: metrics.compression,
@@ -191,6 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             
                             // Detección ligera de EPP por colorimetría
                             const epp = calcWebEPP(canvasCtx, results.poseLandmarks);
+                            currentReportData.epp = epp;
                             
                             // Actualizar UI de EPP en tiempo real
                             const eppList = document.getElementById('epp-status-list');
@@ -310,13 +319,18 @@ document.addEventListener('DOMContentLoaded', () => {
         // (Se eliminó el código que generaba alertas falsas constantes en el ticker)
 
         // Actualizar EPP
+        const hasCasco = Math.random() > 0.3;
+        const hasChaleco = Math.random() > 0.2;
+        currentReportData.epp = { casco: hasCasco, chaleco: hasChaleco };
+        currentReportData.score = Math.floor(Math.random() * 8) + 2; // Simulate score
+
         const eppList = document.getElementById('epp-status-list');
         eppList.innerHTML = `
             <div class="worker-epp">
                 <span class="worker-name">${randomWorker}</span>
                 <div class="epp-items">
-                    <span class="item ${Math.random() > 0.3 ? 'ok' : 'fail'}">⛑️ Casco</span>
-                    <span class="item ${Math.random() > 0.2 ? 'ok' : 'fail'}">🦺 Chaleco</span>
+                    <span class="item ${hasCasco ? 'ok' : 'fail'}">${hasCasco ? '✅' : '❌'} Casco</span>
+                    <span class="item ${hasChaleco ? 'ok' : 'fail'}">${hasChaleco ? '✅' : '❌'} Chaleco</span>
                 </div>
             </div>
             <div class="worker-epp">
@@ -572,5 +586,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 progressBar.style.width = progress + '%';
             }, 300);
         }
+    }
+
+    // Inicializar el modal de Informe
+    if (typeof initReportModal === 'function') {
+        initReportModal(() => currentReportData);
     }
 });
