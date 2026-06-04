@@ -220,6 +220,16 @@ def log_event(camera_url, worker_id, method, score, risk, doc_path, duration=0, 
     except Exception as e:
         print(f"Error guardando alerta en SaaS DB: {e}")
         
+    # Read PDF as base64 so it survives container restarts
+    pdf_b64 = None
+    if doc_path and os.path.exists(doc_path):
+        try:
+            import base64 as _b64
+            with open(doc_path, 'rb') as _f:
+                pdf_b64 = _b64.b64encode(_f.read()).decode('utf-8')
+        except Exception as _e:
+            print(f"Error leyendo PDF para Firebase: {_e}")
+
     event_data = {
         "type": "alert",
         "timestamp": datetime.now().isoformat(),
@@ -229,13 +239,14 @@ def log_event(camera_url, worker_id, method, score, risk, doc_path, duration=0, 
         "score": score,
         "risk": risk,
         "duration": f"{duration}s",
-        "legal_doc": doc_path
+        "legal_doc": doc_path,
+        "pdf_b64": pdf_b64
     }
-    
+
     # Push to Firebase
     def _send_fb():
         try:
-            requests.post(f"{FIREBASE_URL}/alerts.json", json=event_data, timeout=3)
+            requests.post(f"{FIREBASE_URL}/alerts.json", json=event_data, timeout=5)
         except Exception as e:
             print(f"Firebase Alert Error: {e}")
     threading.Thread(target=_send_fb, daemon=True).start()
@@ -573,9 +584,6 @@ async def process_frame(method: str = Form("RULA"), file: UploadFile = File(...)
     if risk in ["Alto", "Critico"]:
         h, w = image.shape[:2]
         cv2.rectangle(image, (0, 0), (w, h), (0, 0, 255), 8)
-
-    cv2.putText(image, datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                (20, image.shape[0] - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
 
     ret, buf = cv2.imencode('.jpg', image, [cv2.IMWRITE_JPEG_QUALITY, 75])
     if not ret:

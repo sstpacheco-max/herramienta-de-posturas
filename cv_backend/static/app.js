@@ -323,28 +323,36 @@ document.addEventListener('DOMContentLoaded', () => {
         browserStreamActive = true;
 
         activeCamerasViewport.innerHTML = `
-            <div class="video-wrapper" style="width:100%;height:100%;position:relative;">
-                <video id="local-video" autoplay playsinline muted style="display:none;"></video>
-                <canvas id="local-canvas" style="width:100%;height:100%;object-fit:contain;border-radius:8px;background:#000;"></canvas>
-                <div style="position:absolute;top:10px;left:10px;background:rgba(0,230,118,0.85);padding:4px 10px;border-radius:4px;font-weight:bold;color:#000;font-size:0.8rem;">
+            <div class="video-wrapper" style="width:100%;height:100%;position:relative;overflow:hidden;background:#000;border-radius:8px;">
+                <video id="local-video" autoplay playsinline muted style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;z-index:1;"></video>
+                <canvas id="local-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;z-index:2;"></canvas>
+                <div style="position:absolute;top:10px;left:10px;background:rgba(0,230,118,0.85);padding:4px 10px;border-radius:4px;font-weight:bold;color:#000;font-size:0.8rem;z-index:3;">
                     <span class="blink">●</span> CÁMARA PC ACTIVA
                 </div>
-                <div id="risk-overlay" style="position:absolute;bottom:10px;left:10px;background:rgba(0,0,0,0.65);padding:4px 10px;border-radius:4px;color:#fff;font-size:0.85rem;">
+                <div id="risk-overlay" style="position:absolute;bottom:10px;left:10px;background:rgba(0,0,0,0.65);padding:4px 10px;border-radius:4px;color:#fff;font-size:0.85rem;z-index:3;">
                     RIESGO: Analizando...
                 </div>
-                <button id="btn-stop-browser" style="position:absolute;top:10px;right:10px;background:rgba(220,0,0,0.7);border:none;color:#fff;cursor:pointer;padding:5px 12px;border-radius:4px;">DETENER</button>
+                <div id="local-timestamp" style="position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,0.5);padding:3px 8px;border-radius:4px;color:rgba(200,200,200,0.9);font-size:0.75rem;font-family:monospace;z-index:3;"></div>
+                <button id="btn-stop-browser" style="position:absolute;top:10px;right:10px;background:rgba(220,0,0,0.7);border:none;color:#fff;cursor:pointer;padding:5px 12px;border-radius:4px;z-index:3;">DETENER</button>
             </div>
         `;
 
         const videoEl = document.getElementById('local-video');
         const canvasEl = document.getElementById('local-canvas');
+        const tsEl = document.getElementById('local-timestamp');
         videoEl.srcObject = stream;
+        videoEl.play().catch(() => {});
 
         document.getElementById('btn-stop-browser').onclick = () => {
             stream.getTracks().forEach(t => t.stop());
             browserStreamActive = false;
             activeCamerasViewport.innerHTML = '<p class="empty-state">No hay cámaras activas. Haz clic en + para iniciar.</p>';
         };
+
+        // Update local timestamp every second
+        setInterval(() => {
+            if (browserStreamActive && tsEl) tsEl.textContent = new Date().toLocaleString('es-CO');
+        }, 1000);
 
         const tmpCanvas = document.createElement('canvas');
         const tmpCtx = tmpCanvas.getContext('2d');
@@ -395,7 +403,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        setInterval(() => { if (browserStreamActive) captureAndProcess(); }, 333);
+        // Wait for video to be ready before starting capture loop
+        videoEl.addEventListener('playing', () => {
+            setInterval(() => { if (browserStreamActive) captureAndProcess(); }, 333);
+        }, { once: true });
     }
 
     function renderActiveCameras(url) {
@@ -447,7 +458,10 @@ document.addEventListener('DOMContentLoaded', () => {
             li.innerHTML = `
                 <span class="alert-msg">Alerta: ${log.method} - ${log.worker_id}</span>
                 <span class="alert-time">${new Date(log.timestamp).toLocaleTimeString()}</span>
-                ${log.legal_doc ? `<a href="/api/download-doc?path=${encodeURIComponent(log.legal_doc)}" target="_blank" style="margin-left:10px; color:#fff; text-decoration:underline; font-size:12px;">📄 PDF</a>` : ''}
+                ${log.pdf_b64
+                    ? `<a href="data:application/pdf;base64,${log.pdf_b64}" download="Reporte_${log.worker_id || 'SST'}.pdf" style="margin-left:10px; color:#fff; text-decoration:underline; font-size:12px;">📄 PDF</a>`
+                    : (log.legal_doc ? `<a href="/api/download-doc?path=${encodeURIComponent(log.legal_doc)}" target="_blank" style="margin-left:10px; color:#fff; text-decoration:underline; font-size:12px;">📄 PDF</a>` : '')
+                }
             `;
             if(prepend) {
                 ticker.prepend(li);
