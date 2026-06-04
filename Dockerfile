@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y \
 COPY cv_backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# v2.4 — force cache bust
 COPY cv_backend/ .
 
 EXPOSE 8000
