@@ -2,8 +2,8 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Dependencias del sistema para OpenCV y MediaPipe
-RUN apt-get update && apt-get install -y \
+# v2.4 — bust apt cache to include libgles2/libegl1 for MediaPipe
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
     libsm6 \
