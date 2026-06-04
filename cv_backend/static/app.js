@@ -332,14 +332,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div id="risk-overlay" style="position:absolute;bottom:10px;left:10px;background:rgba(0,0,0,0.65);padding:4px 10px;border-radius:4px;color:#fff;font-size:0.85rem;z-index:3;">
                     RIESGO: Analizando...
                 </div>
-                <div id="local-timestamp" style="position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,0.5);padding:3px 8px;border-radius:4px;color:rgba(200,200,200,0.9);font-size:0.75rem;font-family:monospace;z-index:3;"></div>
+
                 <button id="btn-stop-browser" style="position:absolute;top:10px;right:10px;background:rgba(220,0,0,0.7);border:none;color:#fff;cursor:pointer;padding:5px 12px;border-radius:4px;z-index:3;">DETENER</button>
             </div>
         `;
 
         const videoEl = document.getElementById('local-video');
         const canvasEl = document.getElementById('local-canvas');
-        const tsEl = document.getElementById('local-timestamp');
         videoEl.srcObject = stream;
         videoEl.play().catch(() => {});
 
@@ -348,11 +347,6 @@ document.addEventListener('DOMContentLoaded', () => {
             browserStreamActive = false;
             activeCamerasViewport.innerHTML = '<p class="empty-state">No hay cámaras activas. Haz clic en + para iniciar.</p>';
         };
-
-        // Update local timestamp every second
-        setInterval(() => {
-            if (browserStreamActive && tsEl) tsEl.textContent = new Date().toLocaleString('es-CO');
-        }, 1000);
 
         const tmpCanvas = document.createElement('canvas');
         const tmpCtx = tmpCanvas.getContext('2d');

@@ -312,15 +312,8 @@ def process_video_stream(camera_url: str, method: str = "RULA"):
         risk, score = "Insignificante", 0
         epp_results = None
 
-        # --- Overlay de Tiempo y Lugar ---
-        now = datetime.now()
-        timestamp_str = now.strftime("%Y-%m-%d %H:%M:%S")
-        
         # Clonar imagen limpia antes de dibujar los textos gigantes para pasarsela a YOLO
         image_clean = image.copy()
-        
-        cv2.putText(image, f"{timestamp_str} | {LOCATION}", (20, image.shape[0] - 20),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
 
         if use_pose and landmarker:
             mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=image)
