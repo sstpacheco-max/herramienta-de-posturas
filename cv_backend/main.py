@@ -107,6 +107,28 @@ except Exception as e:
 
 from biometry_engine import HAS_DEEPFACE
 
+# IMAGE-mode landmarker for single-frame browser requests
+_img_landmarker = None
+_img_landmarker_lock = threading.Lock()
+
+def _get_img_landmarker():
+    global _img_landmarker
+    with _img_landmarker_lock:
+        if _img_landmarker is None and HAS_MEDIAPIPE and os.path.exists(MODEL_PATH):
+            try:
+                opts = mp_vision.PoseLandmarkerOptions(
+                    base_options=mp_python.BaseOptions(model_asset_path=MODEL_PATH),
+                    running_mode=mp_vision.RunningMode.IMAGE,
+                    min_pose_detection_confidence=0.5,
+                    min_pose_presence_confidence=0.5,
+                    min_tracking_confidence=0.5,
+                )
+                _img_landmarker = mp_vision.PoseLandmarker.create_from_options(opts)
+                print("SISTEMA: IMAGE mode PoseLandmarker listo.")
+            except Exception as e:
+                print(f"Error creando image landmarker: {e}")
+        return _img_landmarker
+
 # ─── n8n Webhook ──────────────────────────────────────────────────────────────
 WEBHOOK_URL = os.getenv("N8N_WEBHOOK_URL", "https://n8n-n8n.y3jjap.easypanel.host/webhook-test/sst-alerts")
 n8n_status  = {"last_sent": None, "success": 0, "errors": 0}
@@ -506,12 +528,73 @@ def stop_stream(camera_url: str):
         return {"message": "Detenido"}
     return {"message": "No encontrado"}
 
+@app.post("/api/process-frame")
+async def process_frame(method: str = Form("RULA"), file: UploadFile = File(...)):
+    import base64
+    contents = await file.read()
+    nparr = np.frombuffer(contents, np.uint8)
+    image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    if image is None:
+        return {"error": "imagen invalida"}
+
+    risk, score = "Insignificante", 0
+    use_pose = method in ["RULA", "REBA", "RULA+EPP", "REBA+EPP"]
+    use_epp  = method in ["EPP", "RULA+EPP", "REBA+EPP"]
+    pose_method = method.replace("+EPP", "")
+
+    if use_pose:
+        with _img_landmarker_lock:
+            lmkr = _get_img_landmarker()
+            if lmkr:
+                try:
+                    mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=image)
+                    result = lmkr.detect(mp_img)
+                    if result.pose_landmarks:
+                        lms = result.pose_landmarks[0]
+                        score, risk = (erg.get_rula_score(lms) if pose_method == "RULA"
+                                       else erg.get_reba_score(lms))
+                        draw_marionette(image, lms, get_color(risk))
+                        cv2.putText(image, f"{pose_method}: {score} ({risk})", (20, 40),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, get_color(risk), 2)
+                    else:
+                        cv2.putText(image, "PERSONA NO DETECTADA", (20, 40),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (150, 150, 150), 1)
+                except Exception as e:
+                    print(f"process_frame pose error: {e}")
+
+    if use_epp:
+        epp_results = epp.detect_epp(image.copy())
+        image = epp.draw_epp_results(image, epp_results)
+        if epp_results["score"] > score:
+            score, risk = epp_results["score"], epp_results["risk"]
+
+    if risk in ["Alto", "Critico"]:
+        h, w = image.shape[:2]
+        cv2.rectangle(image, (0, 0), (w, h), (0, 0, 255), 8)
+
+    cv2.putText(image, datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                (20, image.shape[0] - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
+
+    ret, buf = cv2.imencode('.jpg', image, [cv2.IMWRITE_JPEG_QUALITY, 75])
+    if not ret:
+        return {"error": "encoding fallido"}
+    encoded = base64.b64encode(buf.tobytes()).decode('utf-8')
+    return {"annotated_image": encoded, "risk": risk, "score": score}
+
+
 @app.get("/api/download-doc")
 def download_doc(path: str):
     from fastapi.responses import FileResponse
-    if os.path.exists(path):
-        return FileResponse(path, filename=os.path.basename(path))
-    return {"error": "Archivo no encontrado"}
+    abs_path = path if os.path.isabs(path) else os.path.join(BASE_DIR, path)
+    if os.path.exists(abs_path):
+        fname = os.path.basename(abs_path)
+        return FileResponse(
+            abs_path,
+            filename=fname,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename={fname}"}
+        )
+    return {"error": "Archivo no encontrado", "path": abs_path}
 
 @app.post("/api/register-face")
 async def register_face(worker_id: str = Form(...), file: UploadFile = File(...)):

@@ -3,6 +3,8 @@ import os
 from docx import Document
 from datetime import datetime
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # Matriz de Consecuencias (Rule Engine)
 MATRIZ = {
     "RULA": {
@@ -95,10 +97,10 @@ def create_pdf_report(worker_id, worker_name, worker_full_name, method, risk_lev
         pdf.cell(30, 10, "", 0, 0)
         pdf.cell(80, 10, "Coordinador SST", 0, 1, "C")
         
-        report_dir = "reportes_legales"
+        report_dir = os.path.join(BASE_DIR, "reportes_legales")
         if not os.path.exists(report_dir): os.makedirs(report_dir)
-        
-        filename = f"{report_dir}/Reporte_{worker_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+
+        filename = os.path.join(report_dir, f"Reporte_{worker_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf")
         pdf.output(filename)
         print(f"DEBUG: PDF con imagen generado: {filename}")
         return filename

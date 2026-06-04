@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnAddCamTop = document.getElementById('btn-add-cam-top');
     const btnCloseModal = document.getElementById('btn-close-modal');
     const cameraForm = document.getElementById('camera-form');
+    let browserStreamActive = false;
     
     // --- Firebase Initialization ---
     const firebaseConfig = {
@@ -273,6 +274,13 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // Browser webcam: URL "0" or empty → use getUserMedia, no server stream needed
+        if (url === '0' || url === '') {
+            modalCamera.style.display = 'none';
+            startBrowserWebcam(method);
+            return;
+        }
+
         // Registrar la cámara en la base de datos SaaS antes de iniciar el stream
         try {
             const camFormData = new FormData();
@@ -304,6 +312,85 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('No se pudo conectar con el backend.');
         }
     };
+
+    async function startBrowserWebcam(method) {
+        let stream;
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+        } catch(err) {
+            alert('No se pudo acceder a la cámara del PC. Verifica los permisos del navegador.\n' + err.message);
+            return;
+        }
+        browserStreamActive = true;
+
+        activeCamerasViewport.innerHTML = `
+            <div class="video-wrapper" style="width:100%;height:100%;position:relative;">
+                <video id="local-video" autoplay playsinline muted style="display:none;"></video>
+                <canvas id="local-canvas" style="width:100%;height:100%;object-fit:contain;border-radius:8px;background:#000;"></canvas>
+                <div style="position:absolute;top:10px;left:10px;background:rgba(0,230,118,0.85);padding:4px 10px;border-radius:4px;font-weight:bold;color:#000;font-size:0.8rem;">
+                    <span class="blink">●</span> CÁMARA PC ACTIVA
+                </div>
+                <div id="risk-overlay" style="position:absolute;bottom:10px;left:10px;background:rgba(0,0,0,0.65);padding:4px 10px;border-radius:4px;color:#fff;font-size:0.85rem;">
+                    RIESGO: Analizando...
+                </div>
+                <button id="btn-stop-browser" style="position:absolute;top:10px;right:10px;background:rgba(220,0,0,0.7);border:none;color:#fff;cursor:pointer;padding:5px 12px;border-radius:4px;">DETENER</button>
+            </div>
+        `;
+
+        const videoEl = document.getElementById('local-video');
+        const canvasEl = document.getElementById('local-canvas');
+        videoEl.srcObject = stream;
+
+        document.getElementById('btn-stop-browser').onclick = () => {
+            stream.getTracks().forEach(t => t.stop());
+            browserStreamActive = false;
+            activeCamerasViewport.innerHTML = '<p class="empty-state">No hay cámaras activas. Haz clic en + para iniciar.</p>';
+        };
+
+        const tmpCanvas = document.createElement('canvas');
+        const tmpCtx = tmpCanvas.getContext('2d');
+        let processing = false;
+
+        async function captureAndProcess() {
+            if (!browserStreamActive || processing || !videoEl.videoWidth) return;
+            processing = true;
+            try {
+                tmpCanvas.width = videoEl.videoWidth;
+                tmpCanvas.height = videoEl.videoHeight;
+                tmpCtx.drawImage(videoEl, 0, 0);
+
+                const blob = await new Promise(resolve => tmpCanvas.toBlob(resolve, 'image/jpeg', 0.75));
+                const fd = new FormData();
+                fd.append('file', blob, 'frame.jpg');
+                fd.append('method', method);
+
+                const res = await fetch('/api/process-frame', { method: 'POST', body: fd });
+                if (!res.ok) return;
+                const data = await res.json();
+
+                if (data.annotated_image) {
+                    const img = new Image();
+                    img.onload = () => {
+                        canvasEl.width = img.width;
+                        canvasEl.height = img.height;
+                        canvasEl.getContext('2d').drawImage(img, 0, 0);
+                    };
+                    img.src = 'data:image/jpeg;base64,' + data.annotated_image;
+                }
+                if (data.risk !== undefined) {
+                    const riskEl = document.getElementById('risk-overlay');
+                    if (riskEl) riskEl.textContent = `RIESGO: ${data.risk}  (Score: ${data.score})`;
+                    pushRealScoreToCharts(data.score || 0);
+                }
+            } catch(e) {
+                console.error('Frame processing error:', e);
+            } finally {
+                processing = false;
+            }
+        }
+
+        setInterval(() => { if (browserStreamActive) captureAndProcess(); }, 333);
+    }
 
     function renderActiveCameras(url) {
         activeCamerasViewport.innerHTML = `
@@ -391,27 +478,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateMiniCharts() {
-        // Ergo Chart: Valor aleatorio para simular real-time
+        document.getElementById('current-time').textContent = new Date().toLocaleTimeString();
+    }
+
+    function pushRealScoreToCharts(score) {
         const ergoData = ergoChart.data.datasets[0].data;
-        ergoData.push(Math.floor(Math.random() * 40) + 20);
+        ergoData.push(score);
         ergoData.shift();
         ergoChart.update('none');
 
-        // Tension Chart
         const tensionData = tensionChart.data.datasets[0].data;
-        tensionData.push(Math.floor(Math.random() * 20) + 10);
+        tensionData.push(Math.round(score * 0.7));
         tensionData.shift();
         tensionChart.update('none');
-
-        // Actualizar reloj
-        document.getElementById('current-time').textContent = new Date().toLocaleTimeString();
     }
 
     if (!isGitHubPages) {
         fetch(`/api/logs?company_id=${companyId}`).then(r=>r.json()).then(logs => {
             if (logs && logs.length > 0) {
                 updateAlerts(logs.reverse());
-                updateEPPStatus(logs);
+                // EPP section starts empty; only live alerts populate it
             }
         }).catch(e => console.log("Logs locales no disponibles"));
     }
