@@ -1,151 +1,144 @@
 from fpdf import FPDF
 import os
-from docx import Document
 from datetime import datetime
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Matriz de Consecuencias (Rule Engine)
-MATRIZ = {
-    "RULA": {
-        "High": {"gravity": "Grave", "action": "Llamado de Atención"},
-        "Critical": {"gravity": "Grave/Crítica", "action": "Citación a Descargos"}
-    },
-    "REBA": {
-        "High": {"gravity": "Grave", "action": "Llamado de Atención"},
-        "Critical": {"gravity": "Grave/Crítica", "action": "Citación a Descargos"}
-    },
-    "EPP": {
-        "Medium": {"gravity": "Leve", "action": "Nota Verbal / Registro Dashboard"},
-        "High": {"gravity": "Grave", "action": "Llamado de Atención"},
-        "Critical": {"gravity": "Muy Grave", "action": "Citación a Descargos"}
-    }
+NORMATIVA_EPP   = ("Resolucion 2400 de 1979 (Art. 176-177) y Decreto 1072 de 2015: "
+                   "uso obligatorio de los Elementos de Proteccion Personal suministrados por el empleador.")
+NORMATIVA_POSE  = ("Resolucion 2844 de 2007 (GATISO Desordenes Musculoesqueleticos) y "
+                   "Decreto 1072 de 2015: prevencion del riesgo biomecanico.")
+
+ACCIONES = {
+    "Insignificante": "Ninguna accion requerida",
+    "Bajo":           "Monitoreo preventivo",
+    "Medio":          "Nota Verbal / Registro Dashboard",
+    "Alto":           "Llamado de Atencion formal",
+    "Critico":        "Citacion a Descargos inmediata",
 }
 
-NORMATIVA = "Artículos del Reglamento Interno de Trabajo y Decreto 1072 de 2015 (Seguridad y Salud en el Trabajo)."
 
-def classify_violation(method, risk_level):
-    """Clasifica la falta según la matriz de consecuencias."""
+def _build_pdf(title, worker_id, timestamp, risk_level, action, norm, description, evidence_path=""):
+    """Construye y guarda un PDF de reporte; retorna la ruta del archivo."""
     try:
-        risk = risk_level.capitalize()
-        category = MATRIZ.get(method.upper(), MATRIZ["RULA"])
-        return category.get(risk, {"gravity": "Leve", "action": "Notificación Preventiva"})
-    except:
-        return {"gravity": "Leve", "action": "Notificación Preventiva"}
-
-def create_pdf_report(worker_id, worker_name, worker_full_name, method, risk_level, timestamp, classification, description, evidence_path=""):
-    """Genera un reporte oficial en formato PDF con fotografía de evidencia."""
-    try:
-        print(f"DEBUG: Iniciando generación de PDF para {worker_full_name}")
         pdf = FPDF()
         pdf.add_page()
-        
-        # Encabezado
-        pdf.set_font("Helvetica", "B", 18)
-        pdf.set_text_color(44, 62, 80)
-        pdf.cell(0, 15, "REPORTE DE INCIDENCIA SST 4.0", 0, 1, "C")
-        pdf.ln(5)
-        
-        # Cuadro de Detalles
-        pdf.set_fill_color(240, 240, 240)
-        pdf.set_font("Helvetica", "B", 12)
-        pdf.cell(0, 10, "  DETALLES DEL EVENTO", 0, 1, "L", True)
-        
-        pdf.set_font("Helvetica", "", 11)
-        pdf.set_text_color(0, 0, 0)
-        pdf.ln(2)
-        pdf.cell(40, 8, "TRABAJADOR:", 0, 0)
-        pdf.set_font("Helvetica", "B", 11)
-        pdf.cell(0, 8, f"{worker_full_name} (ID: {worker_id})", 0, 1)
-        
-        pdf.set_font("Helvetica", "", 11)
-        pdf.cell(40, 8, "FECHA Y HORA:", 0, 0)
-        pdf.cell(0, 8, f"{timestamp}", 0, 1)
-        
-        pdf.cell(40, 8, "GRAVEDAD:", 0, 0)
-        pdf.set_text_color(200, 0, 0)
-        pdf.cell(0, 8, f"{classification['gravity'].upper()}", 0, 1)
-        
-        pdf.set_text_color(0, 0, 0)
-        pdf.cell(40, 8, "ACCION:", 0, 0)
-        pdf.set_font("Helvetica", "B", 11)
-        pdf.cell(0, 8, f"{classification['action']}", 0, 1)
-        pdf.ln(5)
-        
-        # Fotografía de Evidencia
-        if evidence_path and os.path.exists(evidence_path):
-            pdf.set_font("Helvetica", "B", 12)
-            pdf.cell(0, 10, "  EVIDENCIA FOTOGRAFICA", 0, 1, "L", True)
-            pdf.ln(5)
-            # Insertar imagen (ajustada al ancho de la página)
-            pdf.image(evidence_path, x=20, w=170)
-            pdf.ln(5)
-        
-        # Descripción Legal
-        pdf.set_font("Helvetica", "B", 12)
-        pdf.cell(0, 10, "  DESCRIPCION DE LOS HECHOS", 0, 1, "L", True)
-        pdf.set_font("Helvetica", "", 11)
-        pdf.multi_cell(0, 8, description)
-        pdf.ln(10)
-        
-        # Firmas
-        pdf.ln(10)
-        pdf.cell(80, 10, "_" * 30, 0, 0, "C")
-        pdf.cell(30, 10, "", 0, 0)
-        pdf.cell(80, 10, "_" * 30, 0, 1, "C")
-        pdf.cell(80, 10, "Firma del Trabajador", 0, 0, "C")
-        pdf.cell(30, 10, "", 0, 0)
-        pdf.cell(80, 10, "Coordinador SST", 0, 1, "C")
-        
-        report_dir = os.path.join(BASE_DIR, "reportes_legales")
-        if not os.path.exists(report_dir): os.makedirs(report_dir)
 
-        filename = os.path.join(report_dir, f"Reporte_{worker_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf")
+        # Encabezado
+        pdf.set_font("Helvetica", "B", 16)
+        pdf.set_text_color(44, 62, 80)
+        pdf.cell(0, 14, title, 0, 1, "C")
+        pdf.set_font("Helvetica", "", 9)
+        pdf.set_text_color(120, 120, 120)
+        pdf.cell(0, 6, f"Generado: {timestamp}", 0, 1, "C")
+        pdf.ln(4)
+
+        # Detalles
+        pdf.set_fill_color(230, 230, 230)
+        pdf.set_font("Helvetica", "B", 11)
+        pdf.set_text_color(0, 0, 0)
+        pdf.cell(0, 9, "  DATOS DEL EVENTO", 0, 1, "L", True)
+        pdf.set_font("Helvetica", "", 10)
+        pdf.ln(2)
+
+        def row(label, value, bold_val=False):
+            pdf.set_font("Helvetica", "B", 10)
+            pdf.cell(45, 7, label, 0, 0)
+            pdf.set_font("Helvetica", "B" if bold_val else "", 10)
+            pdf.cell(0, 7, value, 0, 1)
+
+        row("TRABAJADOR:", worker_id.replace("_", " ").title())
+        row("FECHA Y HORA:", timestamp)
+        pdf.set_text_color(180, 0, 0)
+        row("NIVEL DE RIESGO:", risk_level.upper(), bold_val=True)
+        pdf.set_text_color(0, 0, 0)
+        row("ACCION:", action)
+        row("NORMATIVA:", "", bold_val=False)
+        pdf.set_font("Helvetica", "I", 9)
+        pdf.multi_cell(0, 6, norm)
+        pdf.ln(4)
+
+        # Evidencia fotográfica
+        if evidence_path and os.path.exists(evidence_path):
+            pdf.set_font("Helvetica", "B", 11)
+            pdf.cell(0, 9, "  EVIDENCIA FOTOGRAFICA", 0, 1, "L", True)
+            pdf.ln(3)
+            pdf.image(evidence_path, x=20, w=170)
+            pdf.ln(4)
+
+        # Descripción
+        pdf.set_font("Helvetica", "B", 11)
+        pdf.cell(0, 9, "  DESCRIPCION DE LOS HECHOS", 0, 1, "L", True)
+        pdf.set_font("Helvetica", "", 10)
+        pdf.multi_cell(0, 7, description)
+        pdf.ln(8)
+
+        # Firmas
+        pdf.ln(8)
+        pdf.cell(80, 8, "_" * 28, 0, 0, "C")
+        pdf.cell(30, 8, "", 0, 0)
+        pdf.cell(80, 8, "_" * 28, 0, 1, "C")
+        pdf.set_font("Helvetica", "", 9)
+        pdf.cell(80, 6, "Firma del Trabajador", 0, 0, "C")
+        pdf.cell(30, 6, "", 0, 0)
+        pdf.cell(80, 6, "Coordinador SST", 0, 1, "C")
+
+        report_dir = os.path.join(BASE_DIR, "reportes_legales")
+        os.makedirs(report_dir, exist_ok=True)
+        tag = title.split()[1].lower() if len(title.split()) > 1 else "reporte"
+        filename = os.path.join(report_dir,
+                                f"Reporte_{tag}_{worker_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf")
         pdf.output(filename)
-        print(f"DEBUG: PDF con imagen generado: {filename}")
+        print(f"PDF generado: {filename}")
         return filename
     except Exception as e:
-        print(f"ERROR: Fallo al generar PDF con imagen: {e}")
+        print(f"ERROR generando PDF: {e}")
         return None
 
+
+def create_epp_report(worker_id, epp_missing, epp_detected, risk_level, evidence_path=""):
+    """Reporte individual para violaciones de EPP."""
+    ts    = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    accion = ACCIONES.get(risk_level, "Revision requerida")
+    missing_str  = ", ".join(epp_missing)  if epp_missing  else "Ninguno"
+    detected_str = ", ".join(epp_detected) if epp_detected else "Ninguno"
+    desc = (
+        f"El {ts}, el sistema SST 4.0 detecto incumplimiento en el uso de EPP.\n\n"
+        f"EPP FALTANTES: {missing_str}\n"
+        f"EPP DETECTADOS: {detected_str}\n"
+        f"NIVEL DE RIESGO: {risk_level}\n\n"
+        f"NORMATIVA INCUMPLIDA: {NORMATIVA_EPP}\n\n"
+        "Este documento sirve como notificacion formal y registro de evidencia."
+    )
+    return _build_pdf(
+        "REPORTE EPP - Elementos de Proteccion Personal",
+        worker_id, ts, risk_level, accion, NORMATIVA_EPP, desc, evidence_path
+    )
+
+
+def create_posture_report(worker_id, method, score, risk_level, evidence_path=""):
+    """Reporte individual para violaciones de postura (RULA/REBA)."""
+    ts    = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    accion = ACCIONES.get(risk_level, "Revision requerida")
+    method_clean = method.replace("+EPP", "")
+    desc = (
+        f"El {ts}, el sistema SST 4.0 detecto una postura biomecanica de riesgo.\n\n"
+        f"METODO DE ANALISIS: {method_clean}\n"
+        f"PUNTUACION: {score}\n"
+        f"NIVEL DE RIESGO: {risk_level}\n\n"
+        f"NORMATIVA INCUMPLIDA: {NORMATIVA_POSE}\n\n"
+        "Este documento sirve como notificacion formal y registro de evidencia."
+    )
+    return _build_pdf(
+        f"REPORTE POSTURA - Analisis {method_clean}",
+        worker_id, ts, risk_level, accion, NORMATIVA_POSE, desc, evidence_path
+    )
+
+
 def create_document_draft(worker_id, worker_name, method, risk_level, evidence_path="", details=None):
-    """Genera el reporte oficial en PDF con todos los detalles solicitados."""
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    classification = classify_violation(method, risk_level)
-    
-    # Nombre amigable para el reporte
-    worker_full_name = worker_name.replace("_", " ").title()
-    
-    # Construir descripción dinámica con normatividad
-    description = (f"El dia {timestamp}, el sistema de inteligencia artificial detecto un evento de "
-                   f"incumplimiento de normas de Seguridad y Salud en el Trabajo.\n\n")
-
-    if "EPP" in method:
-        epp_missing = ", ".join(details) if details else "elementos obligatorios"
-        description += (f"HECHOS: El trabajador fue identificado sin el uso adecuado de los siguientes Elementos "
-                        f"de Proteccion Personal (EPP): {epp_missing}. El nivel de riesgo detectado es '{risk_level}'.\n\n"
-                        f"NORMATIVA INCUMPLIDA: Resolucion 2400 de 1979 (Art. 176 - 177) y el Decreto 1072 de 2015, "
-                        f"que establecen el uso obligatorio de los Elementos de Proteccion Personal suministrados por el empleador.\n\n")
+    """Compatibilidad con código existente — genera EPP o postura según el método."""
+    if "EPP" in method and details:
+        detected = []
+        return create_epp_report(worker_id, details, detected, risk_level, evidence_path)
     else:
-        description += (f"HECHOS: El trabajador fue identificado realizando una postura biomecanica de riesgo '{risk_level}' "
-                        f"segun el metodo de analisis {method.replace('+EPP','')}.\n\n"
-                        f"NORMATIVA INCUMPLIDA: Resolucion 2844 de 2007 (GATISO para Desordenes Musculoesqueleticos) "
-                        f"y el Sistema de Gestion SST (Decreto 1072 de 2015) frente a la prevencion de riesgo biomecanico.\n\n")
-
-    description += "Este documento sirve como notificacion formal y registro de evidencia de la condicion subestandar."
-    
-    # Generar PDF (Oficial)
-    pdf_path = create_pdf_report(worker_id, worker_name, worker_full_name, method, risk_level, timestamp, classification, description, evidence_path)
-    
-    if pdf_path:
-        # También guardamos el .docx por retrocompatibilidad
-        try:
-            doc = Document()
-            doc.add_heading('NOTIFICACION SST', 0)
-            doc.add_paragraph(description)
-            if evidence_path: doc.add_picture(evidence_path)
-            doc.save(pdf_path.replace(".pdf", ".docx"))
-        except: pass
-        return pdf_path
-    
-    return "Error_Reporte"
+        return create_posture_report(worker_id, method, 0, risk_level, evidence_path)

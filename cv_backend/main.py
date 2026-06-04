@@ -112,6 +112,9 @@ from biometry_engine import HAS_DEEPFACE
 # IMAGE-mode landmarker for single-frame browser requests
 _img_landmarker = None
 _img_landmarker_lock = threading.Lock()
+_last_epp_report_time  = 0.0
+_last_pose_report_time = 0.0
+_REPORT_COOLDOWN = 30.0  # seconds between reports
 
 def _get_img_landmarker():
     global _img_landmarker
@@ -569,6 +572,7 @@ async def process_frame(method: str = Form("RULA"), file: UploadFile = File(...)
                     print(f"process_frame pose error: {e}")
 
     epp_detected, epp_missing = [], []
+    pose_score = score
     if use_epp:
         epp_results = epp.detect_epp(image.copy())
         image = epp.draw_epp_results(image, epp_results)
@@ -585,12 +589,42 @@ async def process_frame(method: str = Form("RULA"), file: UploadFile = File(...)
     if not ret:
         return {"error": "encoding fallido"}
     encoded = base64.b64encode(buf.tobytes()).decode('utf-8')
+
+    # --- Generación de reportes individuales con cooldown ---
+    global _last_epp_report_time, _last_pose_report_time
+    now_t = time.time()
+    epp_pdf_b64  = None
+    pose_pdf_b64 = None
+
+    if risk in ["Alto", "Critico"]:
+        # Guardar frame de evidencia temporalmente
+        ev_dir  = os.path.join(BASE_DIR, "evidencias")
+        os.makedirs(ev_dir, exist_ok=True)
+        ev_path = os.path.join(ev_dir, f"ev_webcam_{int(now_t)}.jpg")
+        cv2.imwrite(ev_path, image)
+
+        if use_epp and epp_missing and (now_t - _last_epp_report_time > _REPORT_COOLDOWN):
+            path = leg.create_epp_report("Camara_PC", epp_missing, epp_detected, risk, ev_path)
+            if path and os.path.exists(path):
+                with open(path, "rb") as f:
+                    epp_pdf_b64 = base64.b64encode(f.read()).decode("utf-8")
+                _last_epp_report_time = now_t
+
+        if use_pose and risk in ["Alto", "Critico"] and (now_t - _last_pose_report_time > _REPORT_COOLDOWN):
+            path = leg.create_posture_report("Camara_PC", pose_method, pose_score, risk, ev_path)
+            if path and os.path.exists(path):
+                with open(path, "rb") as f:
+                    pose_pdf_b64 = base64.b64encode(f.read()).decode("utf-8")
+                _last_pose_report_time = now_t
+
     return {
         "annotated_image": encoded,
         "risk": risk,
         "score": score,
         "epp_detected": epp_detected,
-        "epp_missing": epp_missing
+        "epp_missing": epp_missing,
+        "epp_pdf_b64":  epp_pdf_b64,
+        "pose_pdf_b64": pose_pdf_b64,
     }
 
 
