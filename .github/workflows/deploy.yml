@@ -9,22 +9,31 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Notificar EasyPanel para redespliegue
-        run: |
-          echo "Triggering EasyPanel redeploy..."
-          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
-            "http://72.61.75.57:3000/api/trpc/services.deployService" \
-            -H "Authorization: Bearer ${{ secrets.EASYPANEL_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d '{"json":{"projectName":"posturas","serviceName":"posturas"}}')
-          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-          BODY=$(echo "$RESPONSE" | head -1)
-          echo "HTTP: $HTTP_CODE"
-          echo "Response: $BODY"
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "✅ Redespliegue iniciado en EasyPanel"
-          else
-            echo "⚠️ EasyPanel respondió: $HTTP_CODE — verifica el token o el nombre del servicio"
-            # No fallar el workflow, el push ya fue a GitHub
-            exit 0
-          fi
+      - name: SSH al VPS y redesplegar via EasyPanel API
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          EP_TOKEN: ${{ secrets.EASYPANEL_TOKEN }}
+        with:
+          host: 72.61.75.57
+          username: root
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: 22
+          timeout: 30s
+          command_timeout: 60s
+          envs: EP_TOKEN
+          script: |
+            echo "Llamando a EasyPanel para redesplegar..."
+            RESULT=$(curl -s -w "\n%{http_code}" -X POST \
+              "http://localhost:3000/api/trpc/services.deployService" \
+              -H "Authorization: Bearer ${EP_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d '{"json":{"projectName":"posturas","serviceName":"posturas"}}')
+            CODE=$(echo "$RESULT" | tail -1)
+            BODY=$(echo "$RESULT" | head -1)
+            echo "HTTP: $CODE — $BODY"
+            if [ "$CODE" = "200" ]; then
+              echo "Redespliegue iniciado correctamente"
+            else
+              echo "Fallo al llamar EasyPanel: HTTP $CODE"
+              exit 1
+            fi
