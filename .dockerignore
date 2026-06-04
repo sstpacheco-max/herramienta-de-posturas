@@ -1,0 +1,7 @@
+**/__pycache__
+**/*.pyc
+cv_backend/evidencias/
+cv_backend/reportes_legales/
+cv_backend/*.db
+.git
+*.md

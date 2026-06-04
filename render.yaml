@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: sst-epp-vision
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: LOCATION
+        value: PLANTA PRINCIPAL - SECTOR PROCESOS
+      - key: N8N_WEBHOOK_URL
+        value: https://n8n-n8n.y3jjap.easypanel.host/webhook-test/sst-alerts
