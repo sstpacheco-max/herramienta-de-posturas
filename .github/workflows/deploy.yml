@@ -15,7 +15,10 @@ jobs:
           host: 72.61.75.57
           username: root
           password: ${{ secrets.VPS_PASSWORD }}
-          timeout: 300s
+          port: 22
+          timeout: 60s
+          command_timeout: 300s
+          debug: true
           script: |
             apt-get install -y python3-pip libgl1 libglib2.0-0 git -qq 2>/dev/null || true
             cd /opt
