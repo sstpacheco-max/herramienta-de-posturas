@@ -53,6 +53,11 @@ def detect_epp(frame, person_bbox=None):
     missing_weight = 7 # 3(Casco) + 1(Guantes) + 1(Calzado) + 1(Gafas) + 1(Mascarilla)
     raw_boxes = []
 
+    if model is None:
+        # Sin modelo YOLO no podemos detectar; retornamos estado neutro para evitar falsos positivos
+        return {"detected": [], "missing": [], "details": {k: True for k in details},
+                "risk": "Insignificante", "score": 0, "raw_boxes": []}
+
     if model is not None:
         try:
             # Usar el frame original sin CLAHE para evitar distorsión de colores en YOLO

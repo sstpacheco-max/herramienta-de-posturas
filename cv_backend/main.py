@@ -1,5 +1,14 @@
-import cv2, json, requests, time, threading, os, numpy as np, winsound, asyncio
+import cv2, json, requests, time, threading, os, numpy as np, asyncio
+import sys
 from dotenv import load_dotenv
+
+# winsound solo existe en Windows; en Linux usamos un no-op
+if sys.platform == "win32":
+    import winsound
+    def _beep(freq, dur): winsound.Beep(freq, dur)
+else:
+    def _beep(freq, dur): pass
+
 import db_manager as dbm
 import ergonomics_engine as erg
 import biometry_engine as bio
@@ -342,7 +351,7 @@ def process_video_stream(camera_url: str, method: str = "RULA"):
 
         # Alerta sostenida
         if risk in ["Alto", "Critico"]:
-            winsound.Beep(1500, 200) # Sonido de alerta en servidor
+            _beep(1500, 200)
             if violation_start is None: violation_start = time.time()
             duration = int(time.time() - violation_start)
             h, w = image.shape[:2]
