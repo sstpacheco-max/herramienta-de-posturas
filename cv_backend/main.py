@@ -122,14 +122,17 @@ def _get_img_landmarker():
         if _img_landmarker is None and HAS_MEDIAPIPE and os.path.exists(MODEL_PATH):
             try:
                 opts = mp_vision.PoseLandmarkerOptions(
-                    base_options=mp_python.BaseOptions(model_asset_path=MODEL_PATH),
+                    base_options=mp_python.BaseOptions(
+                        model_asset_path=MODEL_PATH,
+                        delegate=mp_python.BaseOptions.Delegate.CPU,
+                    ),
                     running_mode=mp_vision.RunningMode.IMAGE,
                     min_pose_detection_confidence=0.5,
                     min_pose_presence_confidence=0.5,
                     min_tracking_confidence=0.5,
                 )
                 _img_landmarker = mp_vision.PoseLandmarker.create_from_options(opts)
-                print("SISTEMA: IMAGE mode PoseLandmarker listo.")
+                print("SISTEMA: IMAGE mode PoseLandmarker listo (CPU).")
             except Exception as e:
                 print(f"Error creando image landmarker: {e}")
         return _img_landmarker
@@ -184,7 +187,10 @@ def create_landmarker():
         return None
     try:
         opts = mp_vision.PoseLandmarkerOptions(
-            base_options=mp_python.BaseOptions(model_asset_path=MODEL_PATH),
+            base_options=mp_python.BaseOptions(
+                model_asset_path=MODEL_PATH,
+                delegate=mp_python.BaseOptions.Delegate.CPU,
+            ),
             running_mode=mp_vision.RunningMode.VIDEO,
             min_pose_detection_confidence=0.5,
             min_pose_presence_confidence=0.5,
