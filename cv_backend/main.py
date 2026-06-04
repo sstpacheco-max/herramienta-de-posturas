@@ -575,9 +575,12 @@ async def process_frame(method: str = Form("RULA"), file: UploadFile = File(...)
                 except Exception as e:
                     print(f"process_frame pose error: {e}")
 
+    epp_detected, epp_missing = [], []
     if use_epp:
         epp_results = epp.detect_epp(image.copy())
         image = epp.draw_epp_results(image, epp_results)
+        epp_detected = epp_results.get("detected", [])
+        epp_missing  = epp_results.get("missing", [])
         if epp_results["score"] > score:
             score, risk = epp_results["score"], epp_results["risk"]
 
@@ -589,7 +592,13 @@ async def process_frame(method: str = Form("RULA"), file: UploadFile = File(...)
     if not ret:
         return {"error": "encoding fallido"}
     encoded = base64.b64encode(buf.tobytes()).decode('utf-8')
-    return {"annotated_image": encoded, "risk": risk, "score": score}
+    return {
+        "annotated_image": encoded,
+        "risk": risk,
+        "score": score,
+        "epp_detected": epp_detected,
+        "epp_missing": epp_missing
+    }
 
 
 @app.get("/api/download-doc")

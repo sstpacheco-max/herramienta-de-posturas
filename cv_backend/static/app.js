@@ -396,6 +396,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     pushRealScoreToCharts(data.score || 0);
                 }
+
+                // Update EPP panel with live detections
+                if (data.epp_detected !== undefined || data.epp_missing !== undefined) {
+                    updateEPPLive(data.epp_detected || [], data.epp_missing || [], data.risk);
+                }
+
+                // Push to alerts ticker on high risk
+                if (data.risk === 'Alto' || data.risk === 'Critico') {
+                    const now = new Date();
+                    updateAlerts([{
+                        method: method,
+                        worker_id: 'Cámara PC',
+                        risk: data.risk,
+                        timestamp: now.toISOString()
+                    }], true);
+                }
             } catch(e) {
                 console.error('Frame processing error:', e);
             } finally {
@@ -495,6 +511,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
+    }
+
+    function updateEPPLive(detected, missing, risk) {
+        const eppList = document.getElementById('epp-status-list');
+        if (!eppList) return;
+        const all = ['Casco', 'Guantes', 'Calzado', 'Gafas', 'Mascarilla'];
+        const isCrit = risk === 'Critico' || risk === 'Alto';
+        eppList.innerHTML = `
+            <div class="worker-epp">
+                <span class="worker-name" style="font-size:0.75rem;color:var(--text-muted);">Cámara PC — ${new Date().toLocaleTimeString('es-CO')}</span>
+                <div class="epp-items" style="margin-top:4px;display:flex;flex-direction:column;gap:3px;">
+                    ${all.map(item => {
+                        const ok = detected.includes(item);
+                        return `<span class="item ${ok ? 'ok' : 'fail'}" style="font-size:0.8rem;">${ok ? '✅' : '⚠️'} ${item}: ${ok ? 'OK' : 'FALTA'}</span>`;
+                    }).join('')}
+                </div>
+                <span style="margin-top:5px;display:block;font-weight:bold;color:${isCrit ? '#ff4d4d' : '#00e676'};font-size:0.8rem;">RIESGO: ${risk}</span>
+            </div>
+        `;
     }
 
     function updateMiniCharts() {
