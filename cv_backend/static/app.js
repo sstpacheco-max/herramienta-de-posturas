@@ -150,21 +150,20 @@ document.addEventListener('DOMContentLoaded', () => {
         alertsRef.on('child_added', (snapshot) => {
             const data = snapshot.val();
             if (!data) return;
-            
+
             if (initialDataLoaded) {
-                // Visual Flash de alerta
+                // Solo para alertas nuevas en vivo: flash visual, sonido y EPP
                 document.body.style.boxShadow = "inset 0 0 50px rgba(255,0,0,0.8)";
                 setTimeout(() => document.body.style.boxShadow = "none", 500);
 
-                // Alarma Sonora
                 if(data.risk === 'Alto' || data.risk === 'Critico') {
                     playAlarmSound();
                 }
+                updateEPPStatus([data], true);
             }
-            
-            // Actualizar interfaz
+
+            // Historial de alertas siempre actualiza el ticker
             updateAlerts([data], true);
-            updateEPPStatus([data], true);
         });
 
         alertsRef.once('value', () => {
@@ -380,6 +379,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (data.risk !== undefined) {
                     const riskEl = document.getElementById('risk-overlay');
                     if (riskEl) riskEl.textContent = `RIESGO: ${data.risk}  (Score: ${data.score})`;
+                    const backEl = document.getElementById('back-angle');
+                    if (backEl) {
+                        backEl.textContent = `${data.risk}: ${data.score}`;
+                        backEl.style.color = data.risk === 'Critico' ? '#ff4d4d' :
+                                             data.risk === 'Alto'    ? '#ff8c00' :
+                                             data.risk === 'Medio'   ? '#ffa726' : '#00e676';
+                    }
                     pushRealScoreToCharts(data.score || 0);
                 }
             } catch(e) {
