@@ -37,7 +37,6 @@ function generarInformeHTML(data) {
     const date = new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute:'2-digit' });
     const ergoRec = getErgoRecommendation(data.method, data.score);
     const eppRec = getEppRecommendation(data.epp.casco, data.epp.chaleco);
-
     let evidenciaHTML = '';
     if (data.image) {
         evidenciaHTML = `
@@ -45,6 +44,27 @@ function generarInformeHTML(data) {
             <div style="text-align: center; margin-bottom: 2rem;">
                 <img src="${data.image}" style="max-width: 100%; max-height: 350px; border-radius: 8px; border: 1px solid #bdc3c7;" alt="Evidencia">
             </div>
+        `;
+    }
+
+    let fallasHTML = '';
+    if (data.fallas && data.fallas.length > 0) {
+        let rows = data.fallas.map(f => `
+            <tr>
+                <td style="padding: 10px; border: 1px solid #bdc3c7;"><strong>${f.parte}</strong></td>
+                <td style="padding: 10px; border: 1px solid #bdc3c7; color: #c0392b;">${f.postura}</td>
+            </tr>
+        `).join('');
+        
+        fallasHTML = `
+            <h3 style="color: #2980b9; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-top: 2rem;">Detalle de Posturas (Fallas Ergonómicas)</h3>
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 2rem; font-size: 14px;">
+                <tr style="background: #ecf0f1;">
+                    <th style="padding: 10px; border: 1px solid #bdc3c7; text-align: left;">Segmento del Cuerpo</th>
+                    <th style="padding: 10px; border: 1px solid #bdc3c7; text-align: left;">Postura Detectada</th>
+                </tr>
+                ${rows}
+            </table>
         `;
     }
 
@@ -56,7 +76,7 @@ function generarInformeHTML(data) {
             </div>
             
             <h3 style="color: #2980b9; border-bottom: 1px solid #eee; padding-bottom: 5px;">1. Evaluación Ergonómica (${data.method})</h3>
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 2rem; font-size: 14px;">
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 1rem; font-size: 14px;">
                 <tr style="background: #ecf0f1;">
                     <th style="padding: 10px; border: 1px solid #bdc3c7; text-align: left;">Puntuación Detectada</th>
                     <th style="padding: 10px; border: 1px solid #bdc3c7; text-align: left;">Nivel de Riesgo</th>
@@ -70,7 +90,9 @@ function generarInformeHTML(data) {
                 </tr>
             </table>
 
-            <h3 style="color: #2980b9; border-bottom: 1px solid #eee; padding-bottom: 5px;">2. Cumplimiento de EPP</h3>
+            ${fallasHTML}
+
+            <h3 style="color: #2980b9; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-top: 2rem;">2. Cumplimiento de EPP</h3>
             <table style="width: 100%; border-collapse: collapse; margin-bottom: 2rem; font-size: 14px;">
                 <tr style="background: #ecf0f1;">
                     <th style="padding: 10px; border: 1px solid #bdc3c7; text-align: left;">Estado de Uso</th>

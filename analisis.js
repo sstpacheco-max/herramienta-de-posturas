@@ -80,11 +80,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
+            // Recopilar detalles ergonómicos (fallas/posturas)
+            let fallas = [];
+            const activeView = document.querySelector('.method-view.active');
+            if (activeView) {
+                const items = activeView.querySelectorAll('.posture-item, .arm-details');
+                items.forEach(item => {
+                    const label = item.querySelector('.label');
+                    if (label) {
+                        let sectionName = "Postura";
+                        let prev = item.closest('.posture-grid')?.previousElementSibling;
+                        if (prev && prev.classList.contains('section-title')) {
+                            sectionName = prev.textContent.trim();
+                        }
+                        const badge = item.querySelector('.gray-badge');
+                        if (badge) sectionName = badge.textContent.trim();
+                        
+                        fallas.push({
+                            parte: sectionName,
+                            postura: label.textContent.trim()
+                        });
+                    }
+                });
+            }
+
             return {
                 method: currentMethod,
                 score: currentMethod === 'REBA' ? 7 : (currentMethod === 'RULA' ? 5 : 2),
                 epp: { casco: false, chaleco: true },
-                image: capturedImage
+                image: capturedImage,
+                fallas: fallas
             };
         });
     }
