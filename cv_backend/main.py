@@ -543,9 +543,9 @@ async def process_frame(method: str = Form("RULA"), file: UploadFile = File(...)
     pose_method = method.replace("+EPP", "")
 
     if use_pose:
-        with _img_landmarker_lock:
-            lmkr = _get_img_landmarker()
-            if lmkr:
+        lmkr = _get_img_landmarker()  # handles its own init lock
+        if lmkr:
+            with _img_landmarker_lock:  # serialize concurrent detect() calls
                 try:
                     mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=image)
                     result = lmkr.detect(mp_img)
