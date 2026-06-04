@@ -29,11 +29,13 @@ LOCATION = os.getenv("LOCATION", "PLANTA PRINCIPAL - SECTOR PROCESOS") # Ubicaci
 
 main_loop = None
 
+VERSION = "2.0.0-webcam-fix"
+
 @app.on_event("startup")
 async def startup_event():
     global main_loop
     main_loop = asyncio.get_running_loop()
-    # Precargar el modelo YOLO para EPP
+    print(f"SISTEMA: SST 4.0 version {VERSION} iniciando...")
     print("SISTEMA: Cargando modelo YOLO para EPP (esto puede tomar unos segundos)...")
     epp.get_yolo_model()
 
