@@ -6,34 +6,16 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  notify:
     runs-on: ubuntu-latest
     steps:
-      - name: SSH al VPS y redesplegar via EasyPanel API
-        uses: appleboy/ssh-action@v1.0.3
-        env:
-          EP_TOKEN: ${{ secrets.EASYPANEL_TOKEN }}
-        with:
-          host: 72.61.75.57
-          username: root
-          password: ${{ secrets.VPS_PASSWORD }}
-          port: 22
-          timeout: 30s
-          command_timeout: 60s
-          envs: EP_TOKEN
-          script: |
-            echo "Llamando a EasyPanel para redesplegar..."
-            RESULT=$(curl -s -w "\n%{http_code}" -X POST \
-              "http://localhost:3000/api/trpc/services.deployService" \
-              -H "Authorization: Bearer ${EP_TOKEN}" \
-              -H "Content-Type: application/json" \
-              -d '{"json":{"projectName":"posturas","serviceName":"posturas"}}')
-            CODE=$(echo "$RESULT" | tail -1)
-            BODY=$(echo "$RESULT" | head -1)
-            echo "HTTP: $CODE — $BODY"
-            if [ "$CODE" = "200" ]; then
-              echo "Redespliegue iniciado correctamente"
-            else
-              echo "Fallo al llamar EasyPanel: HTTP $CODE"
-              exit 1
-            fi
+      - name: Confirmar push al repositorio
+        run: |
+          echo "✅ Código actualizado en GitHub"
+          echo "Commit: ${{ github.sha }}"
+          echo "Rama: ${{ github.ref_name }}"
+          echo ""
+          echo "EasyPanel detectará el nuevo commit y redespliegará automáticamente"
+          echo "si tienes habilitado 'Auto Deploy' en la configuración del servicio."
+          echo ""
+          echo "Si no redespliegue automático: ir a EasyPanel → Deploy manualmente."
