@@ -10,9 +10,24 @@ except ImportError:
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "best_ppe_nano.pt")
 
+# URL pública del modelo EPP entrenado en SH17 (YOLOv8n, 17 clases de EPP)
+MODEL_DOWNLOAD_URL = "https://github.com/ahmadmughees/SH17dataset/releases/download/v1/yolo8n.pt"
+
 # Variables globales del modelo
 _model = None
 _model_coco = None
+
+def _download_model():
+    """Descarga el modelo EPP si no existe localmente."""
+    import urllib.request
+    print(f"SISTEMA: Descargando modelo EPP desde {MODEL_DOWNLOAD_URL} ...")
+    try:
+        urllib.request.urlretrieve(MODEL_DOWNLOAD_URL, MODEL_PATH)
+        print(f"SISTEMA: Modelo EPP descargado en {MODEL_PATH}")
+        return True
+    except Exception as e:
+        print(f"SISTEMA: No se pudo descargar el modelo EPP: {e}")
+        return False
 
 def get_yolo_model():
     global _model, _model_coco
@@ -22,12 +37,15 @@ def get_yolo_model():
         except:
             pass
 
-    if _model is None and YOLO is not None and os.path.exists(MODEL_PATH):
-        try:
-            _model = YOLO(MODEL_PATH)
-            print(f"SISTEMA: Modelo YOLO EPP NANO cargado exitosamente. Clases: {_model.names}")
-        except Exception as e:
-            print(f"Error cargando YOLO EPP: {e}")
+    if _model is None and YOLO is not None:
+        if not os.path.exists(MODEL_PATH):
+            _download_model()
+        if os.path.exists(MODEL_PATH):
+            try:
+                _model = YOLO(MODEL_PATH)
+                print(f"SISTEMA: Modelo YOLO EPP NANO cargado exitosamente. Clases: {_model.names}")
+            except Exception as e:
+                print(f"Error cargando YOLO EPP: {e}")
     return _model
 
 RISK_TABLE = [
