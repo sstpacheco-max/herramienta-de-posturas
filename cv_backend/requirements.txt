@@ -10,3 +10,4 @@ tf-keras
 ultralytics
 python-dotenv
 fpdf2
+python-multipart
