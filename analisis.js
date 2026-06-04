@@ -64,10 +64,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (typeof initReportModal === 'function') {
         initReportModal(() => {
+            let capturedImage = null;
+            const videoPreview = document.querySelector('.video-preview');
+            if (videoPreview) {
+                try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = videoPreview.naturalWidth || videoPreview.width || 640;
+                    canvas.height = videoPreview.naturalHeight || videoPreview.height || 480;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(videoPreview, 0, 0, canvas.width, canvas.height);
+                    capturedImage = canvas.toDataURL('image/jpeg', 0.8);
+                } catch (e) {
+                    console.error('Error de CORS en canvas, usando src directo:', e);
+                    capturedImage = videoPreview.src;
+                }
+            }
+
             return {
                 method: currentMethod,
-                score: currentMethod === 'REBA' ? 7 : (currentMethod === 'RULA' ? 5 : 2), // Demo scores
-                epp: { casco: false, chaleco: true }
+                score: currentMethod === 'REBA' ? 7 : (currentMethod === 'RULA' ? 5 : 2),
+                epp: { casco: false, chaleco: true },
+                image: capturedImage
             };
         });
     }

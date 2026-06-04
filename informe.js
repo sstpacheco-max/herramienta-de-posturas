@@ -38,6 +38,16 @@ function generarInformeHTML(data) {
     const ergoRec = getErgoRecommendation(data.method, data.score);
     const eppRec = getEppRecommendation(data.epp.casco, data.epp.chaleco);
 
+    let evidenciaHTML = '';
+    if (data.image) {
+        evidenciaHTML = `
+            <h3 style="color: #2980b9; border-bottom: 1px solid #eee; padding-bottom: 5px;">3. Evidencia Fotográfica</h3>
+            <div style="text-align: center; margin-bottom: 2rem;">
+                <img src="${data.image}" style="max-width: 100%; max-height: 350px; border-radius: 8px; border: 1px solid #bdc3c7;" alt="Evidencia">
+            </div>
+        `;
+    }
+
     return `
         <div style="font-family: Arial, sans-serif; color: #333; background: #fff; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
             <div style="text-align: center; border-bottom: 2px solid #2c3e50; padding-bottom: 1rem; margin-bottom: 2rem;">
@@ -75,6 +85,8 @@ function generarInformeHTML(data) {
                     </td>
                 </tr>
             </table>
+
+            ${evidenciaHTML}
 
             <div style="margin-top: 4rem; text-align: center;">
                 <div style="display: inline-block; width: 200px; border-top: 1px solid #333; padding-top: 10px;">

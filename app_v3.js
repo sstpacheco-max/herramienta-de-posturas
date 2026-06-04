@@ -590,6 +590,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Inicializar el modal de Informe
     if (typeof initReportModal === 'function') {
-        initReportModal(() => currentReportData);
+        initReportModal(() => {
+            let capturedImage = null;
+            // Intentar capturar de la cámara web local (MediaPipe)
+            const webCanvas = document.getElementById('web-canvas');
+            if (webCanvas) {
+                try {
+                    capturedImage = webCanvas.toDataURL('image/jpeg', 0.8);
+                } catch (e) {
+                    console.error('Error capturando canvas:', e);
+                }
+            } else {
+                // Intentar capturar de feed de imagen (cámara IP o servidor local)
+                const imgFeed = document.querySelector('#active-cameras-viewport img');
+                if (imgFeed) {
+                    try {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = imgFeed.naturalWidth || imgFeed.width || 640;
+                        canvas.height = imgFeed.naturalHeight || imgFeed.height || 480;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(imgFeed, 0, 0, canvas.width, canvas.height);
+                        capturedImage = canvas.toDataURL('image/jpeg', 0.8);
+                    } catch (e) {
+                        console.error('Error capturando imagen (posible CORS):', e);
+                    }
+                }
+            }
+            return {
+                ...currentReportData,
+                image: capturedImage
+            };
+        });
     }
 });
