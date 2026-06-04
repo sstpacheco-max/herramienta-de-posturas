@@ -5,8 +5,6 @@ opencv-python
 mediapipe
 requests
 python-docx
-deepface
-tf-keras
 ultralytics
 python-dotenv
 fpdf2
