@@ -596,7 +596,7 @@ async def process_frame(method: str = Form("RULA"), file: UploadFile = File(...)
         h, w = image.shape[:2]
         cv2.rectangle(image, (0, 0), (w, h), (0, 0, 255), 8)
 
-    ret, buf = cv2.imencode('.jpg', image, [cv2.IMWRITE_JPEG_QUALITY, 75])
+    ret, buf = cv2.imencode('.jpg', image, [cv2.IMWRITE_JPEG_QUALITY, 90])
     if not ret:
         return {"error": "encoding fallido"}
     encoded = base64.b64encode(buf.tobytes()).decode('utf-8')

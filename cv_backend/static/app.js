@@ -315,7 +315,15 @@ document.addEventListener('DOMContentLoaded', () => {
     async function startBrowserWebcam(method) {
         let stream;
         try {
-            stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    width:  { ideal: 1280 },
+                    height: { ideal: 720 },
+                    frameRate: { ideal: 30 },
+                    facingMode: 'user'
+                },
+                audio: false
+            });
         } catch(err) {
             alert('No se pudo acceder a la cámara del PC. Verifica los permisos del navegador.\n' + err.message);
             return;
@@ -360,7 +368,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 tmpCanvas.height = videoEl.videoHeight;
                 tmpCtx.drawImage(videoEl, 0, 0);
 
-                const blob = await new Promise(resolve => tmpCanvas.toBlob(resolve, 'image/jpeg', 0.75));
+                const blob = await new Promise(resolve => tmpCanvas.toBlob(resolve, 'image/jpeg', 0.9));
                 const fd = new FormData();
                 fd.append('file', blob, 'frame.jpg');
                 fd.append('method', method);
