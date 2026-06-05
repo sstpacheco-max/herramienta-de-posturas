@@ -1,5 +1,10 @@
 import cv2, json, requests, time, threading, os, numpy as np, asyncio
 import sys
+
+# Disable GPU/OpenGL probing in MediaPipe and TFLite before any imports
+os.environ.setdefault('MEDIAPIPE_DISABLE_GPU', '1')
+os.environ.setdefault('TF_CPP_MIN_LOG_LEVEL', '3')
+os.environ.setdefault('CUDA_VISIBLE_DEVICES', '-1')
 from dotenv import load_dotenv
 
 # winsound solo existe en Windows; en Linux usamos un no-op
