@@ -404,35 +404,34 @@ document.addEventListener('DOMContentLoaded', () => {
                     updateEPPLive(data.epp_detected || [], data.epp_missing || [], data.risk);
                 }
 
-                // Push to alerts ticker on high risk, with individual PDF links
-                if (data.risk === 'Alto' || data.risk === 'Critico') {
-                    const now = new Date();
-                    if (data.epp_pdf_b64) {
-                        updateAlerts([{
-                            method: 'EPP',
-                            worker_id: 'Cámara PC',
-                            risk: data.risk,
-                            timestamp: now.toISOString(),
-                            pdf_b64: data.epp_pdf_b64
-                        }], true);
-                    }
-                    if (data.pose_pdf_b64) {
-                        updateAlerts([{
-                            method: method.replace('+EPP',''),
-                            worker_id: 'Cámara PC',
-                            risk: data.risk,
-                            timestamp: now.toISOString(),
-                            pdf_b64: data.pose_pdf_b64
-                        }], true);
-                    }
-                    if (!data.epp_pdf_b64 && !data.pose_pdf_b64) {
-                        updateAlerts([{
-                            method: method,
-                            worker_id: 'Cámara PC',
-                            risk: data.risk,
-                            timestamp: now.toISOString()
-                        }], true);
-                    }
+                // Push PDF links whenever the backend returns them (any risk level)
+                const now = new Date();
+                if (data.epp_pdf_b64) {
+                    updateAlerts([{
+                        method: 'EPP',
+                        worker_id: 'Cámara PC',
+                        risk: data.risk,
+                        timestamp: now.toISOString(),
+                        pdf_b64: data.epp_pdf_b64
+                    }], true);
+                }
+                if (data.pose_pdf_b64) {
+                    updateAlerts([{
+                        method: method.replace('+EPP',''),
+                        worker_id: 'Cámara PC',
+                        risk: data.risk,
+                        timestamp: now.toISOString(),
+                        pdf_b64: data.pose_pdf_b64
+                    }], true);
+                }
+                // Generic alert (no PDF) only for serious risk
+                if (!data.epp_pdf_b64 && !data.pose_pdf_b64 && (data.risk === 'Alto' || data.risk === 'Critico')) {
+                    updateAlerts([{
+                        method: method,
+                        worker_id: 'Cámara PC',
+                        risk: data.risk,
+                        timestamp: now.toISOString()
+                    }], true);
                 }
             } catch(e) {
                 console.error('Frame processing error:', e);

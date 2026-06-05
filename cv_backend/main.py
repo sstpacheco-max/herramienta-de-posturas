@@ -34,7 +34,7 @@ LOCATION = os.getenv("LOCATION", "PLANTA PRINCIPAL - SECTOR PROCESOS") # Ubicaci
 
 main_loop = None
 
-VERSION = "2.7.0-epp-bbox-fix"
+VERSION = "2.8.0-epp-report-fix"
 
 @app.on_event("startup")
 async def startup_event():
@@ -676,26 +676,36 @@ async def process_frame(method: str = Form("RULA"), file: UploadFile = File(...)
     epp_pdf_b64  = None
     pose_pdf_b64 = None
 
-    if risk in ["Alto", "Critico"]:
-        # Guardar frame de evidencia temporalmente
+    needs_evidence = (use_epp and epp_missing) or (use_pose and risk in ["Alto", "Critico"])
+    if needs_evidence:
         ev_dir  = os.path.join(BASE_DIR, "evidencias")
         os.makedirs(ev_dir, exist_ok=True)
         ev_path = os.path.join(ev_dir, f"ev_webcam_{int(now_t)}.jpg")
         cv2.imwrite(ev_path, image)
 
+        # EPP report: generate whenever ANY item is missing (not just Alto/Critico)
         if use_epp and epp_missing and (now_t - _last_epp_report_time > _REPORT_COOLDOWN):
+            print(f"EPP: generando reporte — faltantes={epp_missing} riesgo={risk}")
             path = leg.create_epp_report("Camara_PC", epp_missing, epp_detected, risk, ev_path)
             if path and os.path.exists(path):
                 with open(path, "rb") as f:
                     epp_pdf_b64 = base64.b64encode(f.read()).decode("utf-8")
                 _last_epp_report_time = now_t
+                print(f"EPP: PDF b64 listo ({len(epp_pdf_b64)} chars)")
+            else:
+                print(f"EPP: ERROR — path={path}")
 
+        # Posture report: only when risk is serious
         if use_pose and risk in ["Alto", "Critico"] and (now_t - _last_pose_report_time > _REPORT_COOLDOWN):
+            print(f"POSE: generando reporte — metodo={pose_method} score={pose_score} riesgo={risk}")
             path = leg.create_posture_report("Camara_PC", pose_method, pose_score, risk, ev_path)
             if path and os.path.exists(path):
                 with open(path, "rb") as f:
                     pose_pdf_b64 = base64.b64encode(f.read()).decode("utf-8")
                 _last_pose_report_time = now_t
+                print(f"POSE: PDF b64 listo ({len(pose_pdf_b64)} chars)")
+            else:
+                print(f"POSE: ERROR — path={path}")
 
     return {
         "annotated_image": encoded,
