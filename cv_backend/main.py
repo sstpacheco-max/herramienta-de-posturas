@@ -121,6 +121,28 @@ _last_epp_report_time  = 0.0
 _last_pose_report_time = 0.0
 _REPORT_COOLDOWN = 30.0  # seconds between reports
 
+# Legacy mp.solutions.pose works on pure CPU without OpenGL — use as fallback
+_legacy_pose = None
+_legacy_pose_lock = threading.Lock()
+
+def _get_legacy_pose():
+    """Legacy mp.solutions.pose — CPU-only, no OpenGL dependency."""
+    global _legacy_pose
+    with _legacy_pose_lock:
+        if _legacy_pose is None:
+            try:
+                _legacy_pose = mp.solutions.pose.Pose(
+                    static_image_mode=True,
+                    model_complexity=1,
+                    enable_segmentation=False,
+                    min_detection_confidence=0.5,
+                    min_tracking_confidence=0.5,
+                )
+                print("SISTEMA: Legacy mp.solutions.pose listo (CPU, sin OpenGL).")
+            except Exception as e:
+                print(f"Error creando legacy pose: {e}")
+        return _legacy_pose
+
 def _get_img_landmarker():
     global _img_landmarker
     with _img_landmarker_lock:
@@ -139,7 +161,7 @@ def _get_img_landmarker():
                 _img_landmarker = mp_vision.PoseLandmarker.create_from_options(opts)
                 print("SISTEMA: IMAGE mode PoseLandmarker listo (CPU).")
             except Exception as e:
-                print(f"Error creando image landmarker: {e}")
+                print(f"Error creando image landmarker (Tasks API): {e}")
         return _img_landmarker
 
 # ─── n8n Webhook ──────────────────────────────────────────────────────────────
@@ -563,9 +585,10 @@ async def process_frame(method: str = Form("RULA"), file: UploadFile = File(...)
     pose_method = method.replace("+EPP", "")
 
     if use_pose:
-        lmkr = _get_img_landmarker()  # handles its own init lock
+        pose_done = False
+        lmkr = _get_img_landmarker()  # Tasks API (may fail if OpenGL missing)
         if lmkr:
-            with _img_landmarker_lock:  # serialize concurrent detect() calls
+            with _img_landmarker_lock:
                 try:
                     mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=image)
                     result = lmkr.detect(mp_img)
@@ -576,11 +599,31 @@ async def process_frame(method: str = Form("RULA"), file: UploadFile = File(...)
                         draw_marionette(image, lms, get_color(risk))
                         cv2.putText(image, f"{pose_method}: {score} ({risk})", (20, 40),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, get_color(risk), 2)
-                    else:
-                        cv2.putText(image, "PERSONA NO DETECTADA", (20, 40),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (150, 150, 150), 1)
+                    pose_done = True
                 except Exception as e:
-                    print(f"process_frame pose error: {e}")
+                    print(f"process_frame Tasks pose error: {e}")
+
+        # Fallback to legacy mp.solutions.pose (pure CPU, no OpenGL)
+        if not pose_done:
+            legacy = _get_legacy_pose()
+            if legacy:
+                with _legacy_pose_lock:
+                    try:
+                        rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                        result = legacy.process(rgb)
+                        if result.pose_landmarks:
+                            lms = result.pose_landmarks.landmark
+                            score, risk = (erg.get_rula_score(lms) if pose_method == "RULA"
+                                           else erg.get_reba_score(lms))
+                            draw_marionette(image, lms, get_color(risk))
+                            cv2.putText(image, f"{pose_method}: {score} ({risk})", (20, 40),
+                                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, get_color(risk), 2)
+                            pose_done = True
+                        else:
+                            cv2.putText(image, "PERSONA NO DETECTADA", (20, 40),
+                                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (150, 150, 150), 1)
+                    except Exception as e:
+                        print(f"process_frame legacy pose error: {e}")
 
     epp_detected, epp_missing = [], []
     pose_score = score
