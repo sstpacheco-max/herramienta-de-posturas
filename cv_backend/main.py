@@ -34,7 +34,7 @@ LOCATION = os.getenv("LOCATION", "PLANTA PRINCIPAL - SECTOR PROCESOS") # Ubicaci
 
 main_loop = None
 
-VERSION = "2.0.0-webcam-fix"
+VERSION = "2.6.0-legacy-fallback"
 
 @app.on_event("startup")
 async def startup_event():

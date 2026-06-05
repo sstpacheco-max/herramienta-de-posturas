@@ -1,9 +1,12 @@
 FROM python:3.11-slim
 
+ARG CACHEBUST=20260605T2300Z-v2.6-fallback
+
 WORKDIR /app
 
-# v2.5 — Mesa software OpenGL stack for MediaPipe headless
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# v2.6 — Mesa + symlink fallback for libGLESv2 (force apt rebuild)
+RUN echo "Build: $CACHEBUST" \
+    && apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
     libsm6 \
@@ -16,12 +19,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglx-mesa0 \
     curl \
     && ldconfig \
+    && echo "Available GLES libs:" \
+    && find / -name "libGLESv2*" 2>/dev/null || echo "  none found" \
     && rm -rf /var/lib/apt/lists/*
 
 COPY cv_backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# v2.4 — force cache bust
+# v2.6 cache bust
 COPY cv_backend/ .
 
 EXPOSE 8000
