@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# v2.4 — bust apt cache to include libgles2/libegl1 for MediaPipe
+# v2.5 — Mesa software OpenGL stack for MediaPipe headless
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
@@ -11,7 +11,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxext6 \
     libgles2 \
     libegl1 \
+    libegl-mesa0 \
+    libgl1-mesa-dri \
+    libglx-mesa0 \
     curl \
+    && ldconfig \
     && rm -rf /var/lib/apt/lists/*
 
 COPY cv_backend/requirements.txt .
