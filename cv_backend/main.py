@@ -34,7 +34,7 @@ LOCATION = os.getenv("LOCATION", "PLANTA PRINCIPAL - SECTOR PROCESOS") # Ubicaci
 
 main_loop = None
 
-VERSION = "2.6.0-legacy-fallback"
+VERSION = "2.7.0-epp-bbox-fix"
 
 @app.on_event("startup")
 async def startup_event():
@@ -584,6 +584,7 @@ async def process_frame(method: str = Form("RULA"), file: UploadFile = File(...)
     use_epp  = method in ["EPP", "RULA+EPP", "REBA+EPP"]
     pose_method = method.replace("+EPP", "")
 
+    pose_lms = None
     if use_pose:
         pose_done = False
         lmkr = _get_img_landmarker()  # Tasks API (may fail if OpenGL missing)
@@ -594,6 +595,7 @@ async def process_frame(method: str = Form("RULA"), file: UploadFile = File(...)
                     result = lmkr.detect(mp_img)
                     if result.pose_landmarks:
                         lms = result.pose_landmarks[0]
+                        pose_lms = lms
                         score, risk = (erg.get_rula_score(lms) if pose_method == "RULA"
                                        else erg.get_reba_score(lms))
                         draw_marionette(image, lms, get_color(risk))
@@ -613,6 +615,7 @@ async def process_frame(method: str = Form("RULA"), file: UploadFile = File(...)
                         result = legacy.process(rgb)
                         if result.pose_landmarks:
                             lms = result.pose_landmarks.landmark
+                            pose_lms = lms
                             score, risk = (erg.get_rula_score(lms) if pose_method == "RULA"
                                            else erg.get_reba_score(lms))
                             draw_marionette(image, lms, get_color(risk))
@@ -625,10 +628,33 @@ async def process_frame(method: str = Form("RULA"), file: UploadFile = File(...)
                     except Exception as e:
                         print(f"process_frame legacy pose error: {e}")
 
+    # Si solo se pidió EPP, igual corremos legacy pose para obtener bbox
+    # (sin esto, YOLO COCO puede no encontrar persona y la deteccion EPP se resetea)
+    if use_epp and not use_pose and pose_lms is None:
+        legacy = _get_legacy_pose()
+        if legacy:
+            with _legacy_pose_lock:
+                try:
+                    rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                    result_b = legacy.process(rgb)
+                    if result_b.pose_landmarks:
+                        pose_lms = result_b.pose_landmarks.landmark
+                except Exception as e:
+                    print(f"process_frame bbox-only pose error: {e}")
+
+    # Derivar bbox de la persona desde landmarks (mejora EPP detection)
+    person_bbox = None
+    if pose_lms is not None:
+        h_img, w_img = image.shape[:2]
+        xs = [lm.x * w_img for lm in pose_lms]
+        ys = [lm.y * h_img for lm in pose_lms]
+        if xs and ys:
+            person_bbox = (min(xs), min(ys), max(xs), max(ys))
+
     epp_detected, epp_missing = [], []
     pose_score = score
     if use_epp:
-        epp_results = epp.detect_epp(image.copy())
+        epp_results = epp.detect_epp(image.copy(), person_bbox=person_bbox)
         image = epp.draw_epp_results(image, epp_results)
         epp_detected = epp_results.get("detected", [])
         epp_missing  = epp_results.get("missing", [])
