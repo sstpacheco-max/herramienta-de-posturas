@@ -414,6 +414,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         timestamp: now.toISOString(),
                         pdf_b64: data.epp_pdf_b64
                     }], true);
+                    speakEPP(data.epp_missing || []);
                 }
                 if (data.pose_pdf_b64) {
                     updateAlerts([{
@@ -485,24 +486,60 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) { console.error(e); }
     }
 
+    // --- Recordatorio de voz EPP ---
+    let lastVoiceAlert = 0;
+    const VOICE_COOLDOWN_MS = 30000; // máximo una voz cada 30 s para no molestar
+
+    function speakEPP(missing) {
+        if (!window.speechSynthesis) return;
+        const now = Date.now();
+        if (now - lastVoiceAlert < VOICE_COOLDOWN_MS) return;
+        lastVoiceAlert = now;
+
+        let msg;
+        if (missing && missing.length > 0) {
+            const items = missing.join(', ');
+            msg = `Atención. Le falta el siguiente equipo de protección personal: ${items}. Recuerde que el uso del EPP es muy importante para su seguridad.`;
+        } else {
+            msg = 'Recuerde: el uso del equipo de protección personal es muy importante para su seguridad.';
+        }
+
+        const utt = new SpeechSynthesisUtterance(msg);
+        utt.lang = 'es-CO';
+        utt.rate = 0.95;
+        utt.pitch = 1;
+        utt.volume = 1;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utt);
+    }
+
+    // Recordatorio periódico cada 5 minutos
+    setInterval(() => {
+        if (browserStreamActive) speakEPP(null);
+    }, 5 * 60 * 1000);
+
     function updateAlerts(logs, prepend=false) {
         const ticker = document.getElementById('alerts-ticker');
         if(!prepend) ticker.innerHTML = '';
-        
-        logs.slice(0, 5).forEach(log => {
+
+        logs.slice(0, 50).forEach(log => {
             const li = document.createElement('li');
-            li.className = `alert-item ${log.risk.toLowerCase() === 'critico' ? 'critical' : 'high'}`;
+            const riskClass = log.risk && log.risk.toLowerCase() === 'critico' ? 'critical' : 'high';
+            li.className = `alert-item ${riskClass}`;
+            const pdfLink = log.pdf_b64
+                ? `<a href="data:application/pdf;base64,${log.pdf_b64}" download="Reporte_${log.method || 'SST'}_${log.worker_id || ''}.pdf" style="color:#fff;background:rgba(255,255,255,0.15);padding:2px 7px;border-radius:4px;font-size:11px;text-decoration:none;white-space:nowrap;">📄 PDF</a>`
+                : (log.legal_doc ? `<a href="/api/download-doc?path=${encodeURIComponent(log.legal_doc)}" target="_blank" style="color:#fff;background:rgba(255,255,255,0.15);padding:2px 7px;border-radius:4px;font-size:11px;text-decoration:none;white-space:nowrap;">📄 PDF</a>` : '');
             li.innerHTML = `
-                <span class="alert-msg">Alerta: ${log.method} - ${log.worker_id}</span>
-                <span class="alert-time">${new Date(log.timestamp).toLocaleTimeString()}</span>
-                ${log.pdf_b64
-                    ? `<a href="data:application/pdf;base64,${log.pdf_b64}" download="Reporte_${log.worker_id || 'SST'}.pdf" style="margin-left:10px; color:#fff; text-decoration:underline; font-size:12px;">📄 PDF</a>`
-                    : (log.legal_doc ? `<a href="/api/download-doc?path=${encodeURIComponent(log.legal_doc)}" target="_blank" style="margin-left:10px; color:#fff; text-decoration:underline; font-size:12px;">📄 PDF</a>` : '')
-                }
+                <span class="alert-msg" style="flex:1;min-width:0;">${log.method || '?'} — ${log.worker_id || 'Cámara'}</span>
+                <span class="alert-time" style="white-space:nowrap;font-size:11px;opacity:0.75;">${new Date(log.timestamp).toLocaleTimeString('es-CO')}</span>
+                ${pdfLink}
             `;
             if(prepend) {
                 ticker.prepend(li);
-                if (ticker.children.length > 5) ticker.lastChild.remove();
+                // Mantener máximo 50 alertas en el DOM
+                if (ticker.children.length > 50) ticker.lastChild.remove();
+                // Scroll al tope para ver la alerta nueva
+                ticker.scrollTop = 0;
             } else {
                 ticker.appendChild(li);
             }

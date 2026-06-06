@@ -294,11 +294,21 @@ body {
 .alerts-list {
     list-style: none;
     font-size: 0.8rem;
+    max-height: 220px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.2) transparent;
 }
+
+.alerts-list::-webkit-scrollbar { width: 4px; }
+.alerts-list::-webkit-scrollbar-track { background: transparent; }
+.alerts-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
 
 .alert-item {
     display: flex;
-    justify-content: space-between;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
     padding: 0.4rem 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
