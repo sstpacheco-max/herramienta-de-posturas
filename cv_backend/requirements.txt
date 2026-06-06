@@ -1,4 +1,4 @@
-# build-v2.9-cpu-only
+# build-v2.10-excel-export
 --extra-index-url https://download.pytorch.org/whl/cpu
 fastapi
 uvicorn
@@ -13,3 +13,4 @@ ultralytics
 python-dotenv
 fpdf2
 python-multipart
+openpyxl

@@ -34,7 +34,7 @@ LOCATION = os.getenv("LOCATION", "PLANTA PRINCIPAL - SECTOR PROCESOS") # Ubicaci
 
 main_loop = None
 
-VERSION = "2.9.0-epp-person-class"
+VERSION = "2.10.0-excel-export"
 
 @app.on_event("startup")
 async def startup_event():
@@ -707,6 +707,24 @@ async def process_frame(method: str = Form("RULA"), file: UploadFile = File(...)
             else:
                 print(f"POSE: ERROR — path={path}")
 
+    # Guardar en SQLite para exportación a Excel (solo eventos con riesgo real)
+    if risk not in ["Insignificante", "Bajo"]:
+        _doc_path = None
+        if epp_pdf_b64 and ev_path:
+            # Guardar ruta del PDF EPP si se generó
+            _doc_path = os.path.join(BASE_DIR, "reportes_legales",
+                f"Reporte_epp_Camara_PC_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf")
+        elif pose_pdf_b64 and ev_path:
+            _doc_path = os.path.join(BASE_DIR, "reportes_legales",
+                f"Reporte_postura_Camara_PC_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf")
+        dbm.log_event(
+            "Camara_PC", "Camara_PC", method, score, risk,
+            _doc_path,
+            duration=0,
+            epp_detected=epp_detected if use_epp else None,
+            epp_missing=epp_missing   if use_epp else None,
+        )
+
     return {
         "annotated_image": encoded,
         "risk": risk,
@@ -731,6 +749,101 @@ def download_doc(path: str):
             headers={"Content-Disposition": f"attachment; filename={fname}"}
         )
     return {"error": "Archivo no encontrado", "path": abs_path}
+
+@app.get("/api/export-excel")
+def export_excel(company_id: int = None):
+    """Genera y descarga un archivo Excel con todos los registros de posturas y EPP."""
+    try:
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment
+        from fastapi.responses import StreamingResponse
+        import io
+
+        events = dbm.get_all_events()
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Registros SST 4.0"
+
+        # Encabezados
+        headers = ["ID", "Fecha y Hora", "Cámara", "Trabajador", "Método",
+                   "Puntuación", "Nivel de Riesgo", "Duración",
+                   "EPP Detectados", "EPP Faltantes", "Informe PDF"]
+        header_fill = PatternFill("solid", fgColor="1F3A5F")
+        header_font = Font(color="FFFFFF", bold=True)
+
+        for col, h in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=h)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="center")
+
+        # Colores por riesgo
+        risk_colors = {
+            "Critico":       "FF4444",
+            "Alto":          "FF8C00",
+            "Medio":         "FFA726",
+            "Bajo":          "4CAF50",
+            "Insignificante":"90CAF9",
+        }
+
+        for row_idx, ev in enumerate(events, 2):
+            risk = ev.get("risk", "")
+            fill_color = risk_colors.get(risk, "FFFFFF")
+            row_fill = PatternFill("solid", fgColor=fill_color)
+
+            doc = ev.get("legal_doc") or ""
+            values = [
+                ev.get("id"),
+                ev.get("timestamp", "")[:19].replace("T", " "),
+                ev.get("camera", ""),
+                ev.get("worker_id", ""),
+                ev.get("method", ""),
+                ev.get("score", 0),
+                risk,
+                ev.get("duration", ""),
+                ev.get("epp_detected", ""),
+                ev.get("epp_missing", ""),
+                os.path.basename(doc) if doc else "",
+            ]
+            for col, val in enumerate(values, 1):
+                cell = ws.cell(row=row_idx, column=col, value=val)
+                if col == 7:  # columna Riesgo
+                    cell.fill = row_fill
+                    cell.font = Font(bold=True)
+                # Enlace al PDF si existe
+                if col == 11 and doc and os.path.exists(doc):
+                    cell.hyperlink = f"/api/download-doc?path={doc}"
+                    cell.font = Font(color="0563C1", underline="single")
+
+        # Ancho de columnas
+        col_widths = [6, 20, 15, 18, 12, 12, 16, 10, 30, 30, 35]
+        for i, w in enumerate(col_widths, 1):
+            ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
+
+        # Hoja resumen
+        ws2 = wb.create_sheet("Resumen")
+        ws2["A1"] = "Resumen de Riesgos"
+        ws2["A1"].font = Font(bold=True, size=14)
+        from collections import Counter
+        riesgo_count = Counter(ev.get("risk", "") for ev in events)
+        ws2["A3"] = "Nivel de Riesgo"
+        ws2["B3"] = "Cantidad"
+        for i, (r, cnt) in enumerate(riesgo_count.items(), 4):
+            ws2.cell(row=i, column=1, value=r)
+            ws2.cell(row=i, column=2, value=cnt)
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        filename = f"SST_Registros_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        return StreamingResponse(
+            buf,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except Exception as e:
+        return {"error": str(e)}
 
 @app.post("/api/register-face")
 async def register_face(worker_id: str = Form(...), file: UploadFile = File(...)):
