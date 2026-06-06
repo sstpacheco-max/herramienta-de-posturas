@@ -34,7 +34,7 @@ LOCATION = os.getenv("LOCATION", "PLANTA PRINCIPAL - SECTOR PROCESOS") # Ubicaci
 
 main_loop = None
 
-VERSION = "2.8.0-epp-report-fix"
+VERSION = "2.9.0-epp-person-class"
 
 @app.on_event("startup")
 async def startup_event():

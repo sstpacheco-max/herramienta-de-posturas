@@ -121,6 +121,16 @@ def detect_epp(frame, person_bbox=None):
                         by1 += y1; by2 += y1
                     raw_boxes.append((int(bx1), int(by1), int(bx2), int(by2), f"COCO:{n}"))
 
+            # Tambien aceptamos "person" detectada por el modelo EPP (clase 0)
+            person_found_in_epp = False
+            if len(results) > 0:
+                for b in results[0].boxes:
+                    cid = int(b.cls[0].item())
+                    nm = model.names[cid].lower()
+                    if nm == "person" or nm == "head" or nm == "face":
+                        person_found_in_epp = True
+                        break
+
             if len(results) > 0:
                 boxes = results[0].boxes
                 names = model.names
@@ -187,11 +197,12 @@ def detect_epp(frame, person_bbox=None):
                     missing_list.append("Mascarilla")
                     missing_weight += 1
 
-            # Si no pasaron un bounding box (no usamos MediaPipe) 
-            # y el modelo COCO tampoco encontró una "person", asumimos frame vacío.
-            if not person_bbox and not person_found_in_coco:
+            # Si no pasaron un bounding box (no usamos MediaPipe), COCO no encontró persona
+            # y el propio modelo EPP tampoco — entonces asumimos frame vacío.
+            if not person_bbox and not person_found_in_coco and not person_found_in_epp:
                 missing_weight = 0
                 missing_list = []
+                detected_list = []
                 # Restablecemos detalles para no mostrar nada en rojo
                 details = {"Casco": True, "Guantes": True, "Calzado": True, "Gafas": True, "Mascarilla": True}
 
