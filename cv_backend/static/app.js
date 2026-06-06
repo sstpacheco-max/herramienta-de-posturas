@@ -27,6 +27,114 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnCloseModal = document.getElementById('btn-close-modal');
     const cameraForm = document.getElementById('camera-form');
     let browserStreamActive = false;
+
+    // ── Gestión de Trabajadores ───────────────────────────────────────────────
+    let workersCache = [];
+
+    async function loadWorkers() {
+        try {
+            const res = await fetch('/api/workers');
+            workersCache = await res.json();
+            renderWorkersList();
+            populateWorkerSelect();
+        } catch(e) { console.error('Error cargando trabajadores:', e); }
+    }
+
+    function renderWorkersList() {
+        const container = document.getElementById('workers-list');
+        if (!container) return;
+        if (workersCache.length === 0) {
+            container.innerHTML = '<p style="color:var(--text-muted);font-size:0.82rem;padding:0.5rem;">No hay trabajadores registrados.</p>';
+            return;
+        }
+        container.innerHTML = workersCache.map(w => `
+            <div class="worker-card">
+                <div>
+                    <div class="wc-name">👷 ${w.nombre}</div>
+                    <div class="wc-meta">CC: ${w.cedula} &nbsp;|&nbsp; ${w.cargo || '—'} &nbsp;|&nbsp; ${w.departamento || '—'} &nbsp;|&nbsp; Turno: ${w.turno}</div>
+                </div>
+                <div class="wc-actions">
+                    <a href="/api/workers/${w.id}/export" download class="btn-sm primary">📊 Excel</a>
+                    <button class="btn-sm primary" onclick="editWorker(${w.id})">✏️ Editar</button>
+                    <button class="btn-sm danger" onclick="deleteWorker(${w.id})">🗑️ Eliminar</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function populateWorkerSelect() {
+        const sel = document.getElementById('worker-select');
+        if (!sel) return;
+        const current = sel.value;
+        sel.innerHTML = '<option value="">-- Sin asignar --</option>';
+        workersCache.forEach(w => {
+            const opt = document.createElement('option');
+            opt.value = w.id;
+            opt.dataset.name = w.nombre;
+            opt.textContent = `${w.nombre} (${w.cedula})`;
+            sel.appendChild(opt);
+        });
+        sel.value = current;
+    }
+
+    window.editWorker = (id) => {
+        const w = workersCache.find(x => x.id === id);
+        if (!w) return;
+        document.getElementById('worker-edit-id').value = w.id;
+        document.getElementById('w-nombre').value = w.nombre;
+        document.getElementById('w-cedula').value = w.cedula;
+        document.getElementById('w-cargo').value = w.cargo || '';
+        document.getElementById('w-departamento').value = w.departamento || '';
+        document.getElementById('w-turno').value = w.turno || 'Mañana';
+        document.getElementById('worker-form-section').open = true;
+        document.getElementById('worker-form-section').scrollIntoView({ behavior: 'smooth' });
+    };
+
+    window.deleteWorker = async (id) => {
+        const w = workersCache.find(x => x.id === id);
+        if (!w || !confirm(`¿Eliminar a ${w.nombre}? Sus eventos históricos se conservan.`)) return;
+        await fetch(`/api/workers/${id}`, { method: 'DELETE' });
+        await loadWorkers();
+    };
+
+    document.getElementById('worker-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const editId = document.getElementById('worker-edit-id').value;
+        const fd = new FormData();
+        fd.append('nombre', document.getElementById('w-nombre').value.trim());
+        fd.append('cedula', document.getElementById('w-cedula').value.trim());
+        fd.append('cargo', document.getElementById('w-cargo').value.trim());
+        fd.append('departamento', document.getElementById('w-departamento').value.trim());
+        fd.append('turno', document.getElementById('w-turno').value);
+
+        const url  = editId ? `/api/workers/${editId}` : '/api/workers';
+        const meth = editId ? 'PUT' : 'POST';
+        const res  = await fetch(url, { method: meth, body: fd });
+        const data = await res.json();
+
+        if (data.status === 'ok') {
+            document.getElementById('worker-form').reset();
+            document.getElementById('worker-edit-id').value = '';
+            await loadWorkers();
+        } else {
+            alert(data.message || 'Error guardando. ¿Cédula duplicada?');
+        }
+    });
+
+    const modalWorkers = document.getElementById('modal-workers');
+    document.getElementById('btn-workers').addEventListener('click', () => {
+        modalWorkers.style.display = 'flex';
+        loadWorkers();
+    });
+    document.getElementById('btn-close-workers').addEventListener('click', () => {
+        modalWorkers.style.display = 'none';
+    });
+    modalWorkers.addEventListener('click', (e) => {
+        if (e.target === modalWorkers) modalWorkers.style.display = 'none';
+    });
+
+    // Cargar trabajadores al inicio para el dropdown de cámaras
+    loadWorkers();
     
     // --- Firebase Initialization ---
     const firebaseConfig = {
@@ -196,6 +304,11 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const url = document.getElementById('camera-url').value;
         const method = document.getElementById('method').value;
+        const workerSel = document.getElementById('worker-select');
+        const selectedWorkerId   = workerSel ? (workerSel.value || null) : null;
+        const selectedWorkerName = workerSel && workerSel.value
+            ? (workerSel.options[workerSel.selectedIndex].dataset.name || 'Cámara PC')
+            : 'Cámara PC';
 
         if (isGitHubPages) {
             modalCamera.style.display = 'none';
@@ -276,7 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Browser webcam: URL "0" or empty → use getUserMedia, no server stream needed
         if (url === '0' || url === '') {
             modalCamera.style.display = 'none';
-            startBrowserWebcam(method);
+            startBrowserWebcam(method, selectedWorkerName, selectedWorkerId);
             return;
         }
 
@@ -312,7 +425,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    async function startBrowserWebcam(method) {
+    async function startBrowserWebcam(method, workerName = 'Cámara PC', workerDbId = null) {
         let stream;
         try {
             stream = await navigator.mediaDevices.getUserMedia({
@@ -335,7 +448,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <video id="local-video" autoplay playsinline muted style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;z-index:1;"></video>
                 <canvas id="local-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;z-index:2;"></canvas>
                 <div style="position:absolute;top:10px;left:10px;background:rgba(0,230,118,0.85);padding:4px 10px;border-radius:4px;font-weight:bold;color:#000;font-size:0.8rem;z-index:3;">
-                    <span class="blink">●</span> CÁMARA PC ACTIVA
+                    <span class="blink">●</span> 👷 ${workerName}
                 </div>
                 <div id="risk-overlay" style="position:absolute;bottom:10px;left:10px;background:rgba(0,0,0,0.65);padding:4px 10px;border-radius:4px;color:#fff;font-size:0.85rem;z-index:3;">
                     RIESGO: Analizando...
@@ -372,6 +485,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const fd = new FormData();
                 fd.append('file', blob, 'frame.jpg');
                 fd.append('method', method);
+                fd.append('worker_name', workerName);
+                if (workerDbId) fd.append('worker_db_id', workerDbId);
 
                 const res = await fetch('/api/process-frame', { method: 'POST', body: fd });
                 if (!res.ok) return;
@@ -409,7 +524,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (data.epp_pdf_b64) {
                     updateAlerts([{
                         method: 'EPP',
-                        worker_id: 'Cámara PC',
+                        worker_id: workerName,
                         risk: data.risk,
                         timestamp: now.toISOString(),
                         pdf_b64: data.epp_pdf_b64
@@ -419,7 +534,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (data.pose_pdf_b64) {
                     updateAlerts([{
                         method: method.replace('+EPP',''),
-                        worker_id: 'Cámara PC',
+                        worker_id: workerName,
                         risk: data.risk,
                         timestamp: now.toISOString(),
                         pdf_b64: data.pose_pdf_b64
@@ -429,7 +544,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!data.epp_pdf_b64 && !data.pose_pdf_b64 && (data.risk === 'Alto' || data.risk === 'Critico')) {
                     updateAlerts([{
                         method: method,
-                        worker_id: 'Cámara PC',
+                        worker_id: workerName,
                         risk: data.risk,
                         timestamp: now.toISOString()
                     }], true);

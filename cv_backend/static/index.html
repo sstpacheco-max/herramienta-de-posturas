@@ -25,6 +25,7 @@
         </div>
         <div class="system-meta">
             <button id="btn-add-cam-top" class="btn-glow-small">➕ AGREGAR CÁMARA PC</button>
+            <button id="btn-workers" class="btn-glow-small" style="background:linear-gradient(45deg,#4facfe,#00c4ff);margin-left:8px;">👷 TRABAJADORES</button>
             <a id="btn-export-excel" href="/api/export-excel" download style="background:rgba(0,180,80,0.85);color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:0.78rem;font-weight:600;cursor:pointer;text-decoration:none;margin-left:8px;">📊 EXPORTAR EXCEL</a>
             <div class="status-indicator active">
                 SISTEMA: <span id="system-status-text">ACTIVO</span>
@@ -183,6 +184,12 @@
                     <input type="text" id="camera-url" value="0">
                 </div>
                 <div class="form-group">
+                    <label>Trabajador</label>
+                    <select id="worker-select">
+                        <option value="">-- Sin asignar --</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label>Método</label>
                     <select id="method">
                         <option value="RULA+EPP">RULA + EPP (Completo)</option>
@@ -195,6 +202,40 @@
                     <button type="button" id="btn-close-modal">CANCELAR</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Modal Trabajadores -->
+    <div id="modal-workers" class="modal" style="display:none;">
+        <div class="modal-content glass-card" style="width:680px;max-height:85vh;overflow-y:auto;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem;">
+                <h2 style="font-size:1.1rem;">👷 Gestión de Trabajadores</h2>
+                <button id="btn-close-workers" class="icon-btn" style="font-size:1.4rem;">✕</button>
+            </div>
+
+            <!-- Formulario registro -->
+            <details id="worker-form-section" open>
+                <summary style="cursor:pointer;font-weight:700;color:var(--accent-blue);margin-bottom:0.8rem;">➕ Registrar / Editar Trabajador</summary>
+                <form id="worker-form" style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;margin-top:0.8rem;">
+                    <input type="hidden" id="worker-edit-id">
+                    <div class="form-group"><label>Nombre completo *</label><input type="text" id="w-nombre" required placeholder="Ej: Juan García"></div>
+                    <div class="form-group"><label>Cédula / ID *</label><input type="text" id="w-cedula" required placeholder="Ej: 1234567890"></div>
+                    <div class="form-group"><label>Cargo</label><input type="text" id="w-cargo" placeholder="Ej: Operario"></div>
+                    <div class="form-group"><label>Departamento</label><input type="text" id="w-departamento" placeholder="Ej: Producción"></div>
+                    <div class="form-group"><label>Turno</label>
+                        <select id="w-turno">
+                            <option>Mañana</option><option>Tarde</option><option>Noche</option><option>Rotativo</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="align-self:end;">
+                        <button type="submit" class="btn-glow-small" style="width:100%;">💾 GUARDAR</button>
+                    </div>
+                </form>
+            </details>
+
+            <!-- Lista de trabajadores -->
+            <h3 style="font-size:0.8rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin:1rem 0 0.5rem;">Trabajadores Registrados</h3>
+            <div id="workers-list" style="display:flex;flex-direction:column;gap:0.5rem;"></div>
         </div>
     </div>
 

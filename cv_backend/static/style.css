@@ -379,6 +379,84 @@ body {
     box-shadow: 0 0 20px rgba(0, 230, 118, 0.5);
 }
 
+/* --- Form Groups (modales) --- */
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.form-group label {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.form-group input,
+.form-group select {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid var(--glass-border);
+    border-radius: 4px;
+    color: var(--text-primary);
+    padding: 0.4rem 0.6rem;
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    border-color: var(--accent-blue);
+}
+
+.form-group select option {
+    background: #1a202c;
+}
+
+/* --- Worker Cards --- */
+.worker-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--glass-border);
+    border-radius: 6px;
+    padding: 0.6rem 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.worker-card .wc-name {
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+.worker-card .wc-meta {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+.worker-card .wc-actions {
+    display: flex;
+    gap: 0.4rem;
+    flex-shrink: 0;
+}
+
+.btn-sm {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid var(--glass-border);
+    color: var(--text-primary);
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-sm:hover { background: rgba(255,255,255,0.15); }
+.btn-sm.danger { color: var(--accent-red); }
+.btn-sm.primary { color: var(--accent-blue); }
+
 /* --- Animations --- */
 @keyframes pulseActive {
     0% { opacity: 0.6; }

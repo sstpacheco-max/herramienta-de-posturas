@@ -34,7 +34,7 @@ LOCATION = os.getenv("LOCATION", "PLANTA PRINCIPAL - SECTOR PROCESOS") # Ubicaci
 
 main_loop = None
 
-VERSION = "2.10.0-excel-export"
+VERSION = "2.11.0-worker-tracking"
 
 @app.on_event("startup")
 async def startup_event():
@@ -571,7 +571,12 @@ def stop_stream(camera_url: str):
     return {"message": "No encontrado"}
 
 @app.post("/api/process-frame")
-async def process_frame(method: str = Form("RULA"), file: UploadFile = File(...)):
+async def process_frame(
+    method: str = Form("RULA"),
+    worker_name: str = Form("Cámara PC"),
+    worker_db_id: int = Form(None),
+    file: UploadFile = File(...)
+):
     import base64
     contents = await file.read()
     nparr = np.frombuffer(contents, np.uint8)
@@ -685,8 +690,8 @@ async def process_frame(method: str = Form("RULA"), file: UploadFile = File(...)
 
         # EPP report: generate whenever ANY item is missing (not just Alto/Critico)
         if use_epp and epp_missing and (now_t - _last_epp_report_time > _REPORT_COOLDOWN):
-            print(f"EPP: generando reporte — faltantes={epp_missing} riesgo={risk}")
-            path = leg.create_epp_report("Camara_PC", epp_missing, epp_detected, risk, ev_path)
+            print(f"EPP: generando reporte — trabajador={worker_name} faltantes={epp_missing} riesgo={risk}")
+            path = leg.create_epp_report(worker_name, epp_missing, epp_detected, risk, ev_path)
             if path and os.path.exists(path):
                 with open(path, "rb") as f:
                     epp_pdf_b64 = base64.b64encode(f.read()).decode("utf-8")
@@ -697,8 +702,8 @@ async def process_frame(method: str = Form("RULA"), file: UploadFile = File(...)
 
         # Posture report: only when risk is serious
         if use_pose and risk in ["Alto", "Critico"] and (now_t - _last_pose_report_time > _REPORT_COOLDOWN):
-            print(f"POSE: generando reporte — metodo={pose_method} score={pose_score} riesgo={risk}")
-            path = leg.create_posture_report("Camara_PC", pose_method, pose_score, risk, ev_path)
+            print(f"POSE: generando reporte — trabajador={worker_name} metodo={pose_method} score={pose_score} riesgo={risk}")
+            path = leg.create_posture_report(worker_name, pose_method, pose_score, risk, ev_path)
             if path and os.path.exists(path):
                 with open(path, "rb") as f:
                     pose_pdf_b64 = base64.b64encode(f.read()).decode("utf-8")
@@ -707,22 +712,22 @@ async def process_frame(method: str = Form("RULA"), file: UploadFile = File(...)
             else:
                 print(f"POSE: ERROR — path={path}")
 
-    # Guardar en SQLite para exportación a Excel (solo eventos con riesgo real)
+    # Guardar en SQLite (solo eventos con riesgo real)
     if risk not in ["Insignificante", "Bajo"]:
         _doc_path = None
         if epp_pdf_b64 and ev_path:
-            # Guardar ruta del PDF EPP si se generó
             _doc_path = os.path.join(BASE_DIR, "reportes_legales",
-                f"Reporte_epp_Camara_PC_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf")
+                f"Reporte_epp_{worker_name.replace(' ','_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf")
         elif pose_pdf_b64 and ev_path:
             _doc_path = os.path.join(BASE_DIR, "reportes_legales",
-                f"Reporte_postura_Camara_PC_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf")
+                f"Reporte_postura_{worker_name.replace(' ','_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf")
         dbm.log_event(
-            "Camara_PC", "Camara_PC", method, score, risk,
+            "Camara_PC", worker_name, method, score, risk,
             _doc_path,
             duration=0,
             epp_detected=epp_detected if use_epp else None,
             epp_missing=epp_missing   if use_epp else None,
+            worker_db_id=worker_db_id,
         )
 
     return {
@@ -749,6 +754,145 @@ def download_doc(path: str):
             headers={"Content-Disposition": f"attachment; filename={fname}"}
         )
     return {"error": "Archivo no encontrado", "path": abs_path}
+
+# ─── Workers API ──────────────────────────────────────────────────────────────
+
+@app.get("/api/workers")
+def list_workers():
+    return dbm.get_all_workers()
+
+@app.post("/api/workers")
+async def create_worker(
+    nombre:       str = Form(...),
+    cedula:       str = Form(...),
+    cargo:        str = Form(""),
+    departamento: str = Form(""),
+    turno:        str = Form("Mañana"),
+):
+    wid = dbm.add_worker(nombre, cedula, cargo, departamento, turno)
+    if wid:
+        return {"status": "ok", "id": wid}
+    return {"status": "error", "message": "Cédula ya registrada u otro error"}
+
+@app.put("/api/workers/{worker_id}")
+async def edit_worker(
+    worker_id:    int,
+    nombre:       str = Form(...),
+    cedula:       str = Form(...),
+    cargo:        str = Form(""),
+    departamento: str = Form(""),
+    turno:        str = Form("Mañana"),
+):
+    ok = dbm.update_worker(worker_id, nombre, cedula, cargo, departamento, turno)
+    return {"status": "ok" if ok else "error"}
+
+@app.delete("/api/workers/{worker_id}")
+def delete_worker(worker_id: int):
+    ok = dbm.deactivate_worker(worker_id)
+    return {"status": "ok" if ok else "error"}
+
+@app.get("/api/workers/{worker_id}/events")
+def worker_events(worker_id: int):
+    return dbm.get_worker_events(worker_id)
+
+@app.get("/api/workers/{worker_id}/summary")
+def worker_summary(worker_id: int):
+    worker = dbm.get_worker_by_id(worker_id)
+    summary = dbm.get_worker_summary(worker_id)
+    if worker:
+        return {**worker, **summary}
+    return {"error": "Trabajador no encontrado"}
+
+@app.get("/api/workers/{worker_id}/export")
+def export_worker_excel(worker_id: int):
+    """Genera Excel individual del historial de un trabajador."""
+    try:
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment
+        import io
+
+        worker = dbm.get_worker_by_id(worker_id)
+        if not worker:
+            return {"error": "Trabajador no encontrado"}
+        events = dbm.get_worker_events(worker_id)
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Historial"
+
+        # Ficha del trabajador
+        ws.merge_cells("A1:K1")
+        ws["A1"] = f"Historial SST — {worker['nombre']} | Cédula: {worker['cedula']} | Cargo: {worker['cargo']} | Dpto: {worker['departamento']}"
+        ws["A1"].font = Font(bold=True, size=12, color="FFFFFF")
+        ws["A1"].fill = PatternFill("solid", fgColor="1F3A5F")
+        ws["A1"].alignment = Alignment(horizontal="center")
+
+        headers = ["ID", "Fecha y Hora", "Método", "Puntuación", "Nivel de Riesgo",
+                   "EPP Detectados", "EPP Faltantes", "Duración", "Informe PDF"]
+        hfill = PatternFill("solid", fgColor="2E4A7A")
+        hfont = Font(color="FFFFFF", bold=True)
+        for col, h in enumerate(headers, 1):
+            cell = ws.cell(row=2, column=col, value=h)
+            cell.fill = hfill
+            cell.font = hfont
+            cell.alignment = Alignment(horizontal="center")
+
+        risk_colors = {
+            "Critico": "FF4444", "Alto": "FF8C00", "Medio": "FFA726",
+            "Bajo": "4CAF50", "Insignificante": "90CAF9",
+        }
+        for row_idx, ev in enumerate(events, 3):
+            risk = ev.get("risk", "")
+            doc = ev.get("legal_doc") or ""
+            vals = [
+                ev.get("id"),
+                ev.get("timestamp", "")[:19].replace("T", " "),
+                ev.get("method", ""),
+                ev.get("score", 0),
+                risk,
+                ev.get("epp_detected", ""),
+                ev.get("epp_missing", ""),
+                ev.get("duration", ""),
+                os.path.basename(doc) if doc else "",
+            ]
+            for col, val in enumerate(vals, 1):
+                cell = ws.cell(row=row_idx, column=col, value=val)
+                if col == 5:
+                    cell.fill = PatternFill("solid", fgColor=risk_colors.get(risk, "FFFFFF"))
+                    cell.font = Font(bold=True)
+                if col == 9 and doc and os.path.exists(doc):
+                    cell.hyperlink = f"/api/download-doc?path={doc}"
+                    cell.font = Font(color="0563C1", underline="single")
+
+        for i, w in enumerate([6, 20, 12, 12, 16, 30, 30, 10, 40], 1):
+            ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
+
+        # Hoja resumen
+        ws2 = wb.create_sheet("Resumen")
+        summary = dbm.get_worker_summary(worker_id)
+        ws2["A1"] = f"Resumen — {worker['nombre']}"
+        ws2["A1"].font = Font(bold=True, size=13)
+        ws2.cell(row=3, column=1, value="Total eventos").font = Font(bold=True)
+        ws2.cell(row=3, column=2, value=summary["total"])
+        ws2.cell(row=4, column=1, value="Último evento").font = Font(bold=True)
+        ws2.cell(row=4, column=2, value=(summary["last_event"] or "")[:19].replace("T"," "))
+        ws2.cell(row=6, column=1, value="Nivel de Riesgo").font = Font(bold=True)
+        ws2.cell(row=6, column=2, value="Cantidad").font = Font(bold=True)
+        for i, (r, cnt) in enumerate(summary["by_risk"].items(), 7):
+            ws2.cell(row=i, column=1, value=r)
+            ws2.cell(row=i, column=2, value=cnt)
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        fname = f"SST_{worker['nombre'].replace(' ','_')}_{datetime.now().strftime('%Y%m%d')}.xlsx"
+        return StreamingResponse(
+            buf,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={fname}"}
+        )
+    except Exception as e:
+        return {"error": str(e)}
 
 @app.get("/api/export-excel")
 def export_excel(company_id: int = None):
@@ -821,17 +965,51 @@ def export_excel(company_id: int = None):
         for i, w in enumerate(col_widths, 1):
             ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
 
-        # Hoja resumen
+        # Hoja resumen global
+        from collections import Counter, defaultdict
         ws2 = wb.create_sheet("Resumen")
-        ws2["A1"] = "Resumen de Riesgos"
+        ws2["A1"] = "Resumen Global de Riesgos"
         ws2["A1"].font = Font(bold=True, size=14)
-        from collections import Counter
         riesgo_count = Counter(ev.get("risk", "") for ev in events)
         ws2["A3"] = "Nivel de Riesgo"
         ws2["B3"] = "Cantidad"
+        ws2["A3"].font = ws2["B3"].font = Font(bold=True)
         for i, (r, cnt) in enumerate(riesgo_count.items(), 4):
             ws2.cell(row=i, column=1, value=r)
             ws2.cell(row=i, column=2, value=cnt)
+
+        # Hoja por trabajador
+        ws3 = wb.create_sheet("Por Trabajador")
+        ws3["A1"] = "Faltas y Eventos por Trabajador"
+        ws3["A1"].font = Font(bold=True, size=14)
+        w_headers = ["Trabajador", "Total Eventos", "Crítico", "Alto", "Medio", "Bajo"]
+        for col, h in enumerate(w_headers, 1):
+            cell = ws3.cell(row=2, column=col, value=h)
+            cell.fill = PatternFill("solid", fgColor="1F3A5F")
+            cell.font = Font(color="FFFFFF", bold=True)
+
+        worker_counts = defaultdict(lambda: {"total": 0, "Critico": 0, "Alto": 0, "Medio": 0, "Bajo": 0})
+        for ev in events:
+            wid = ev.get("worker_id", "Desconocido")
+            r = ev.get("risk", "")
+            worker_counts[wid]["total"] += 1
+            if r in worker_counts[wid]:
+                worker_counts[wid][r] += 1
+
+        for row_idx, (wname, wdata) in enumerate(
+            sorted(worker_counts.items(), key=lambda x: x[1]["total"], reverse=True), 3
+        ):
+            ws3.cell(row=row_idx, column=1, value=wname)
+            ws3.cell(row=row_idx, column=2, value=wdata["total"])
+            ws3.cell(row=row_idx, column=3, value=wdata["Critico"])
+            ws3.cell(row=row_idx, column=4, value=wdata["Alto"])
+            ws3.cell(row=row_idx, column=5, value=wdata["Medio"])
+            ws3.cell(row=row_idx, column=6, value=wdata["Bajo"])
+            if wdata["Critico"] > 0:
+                ws3.cell(row=row_idx, column=3).fill = PatternFill("solid", fgColor="FF4444")
+                ws3.cell(row=row_idx, column=3).font = Font(bold=True)
+        for i, cw in enumerate([25, 14, 10, 10, 10, 10], 1):
+            ws3.column_dimensions[openpyxl.utils.get_column_letter(i)].width = cw
 
         buf = io.BytesIO()
         wb.save(buf)
