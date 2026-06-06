@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-ARG CACHEBUST=20260606T0420Z-v2.9-person-class
+ARG CACHEBUST=20260606T0430Z-v2.9-cpu-torch
 
 WORKDIR /app
 
@@ -26,7 +26,7 @@ RUN echo "Build: $CACHEBUST" \
 COPY cv_backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# v2.9 cache bust — esta línea se invalida con cada CACHEBUST
+# cache bust — esta línea invalida la capa de código con cada CACHEBUST
 RUN echo "App copy bust: $CACHEBUST"
 COPY cv_backend/ .
 

@@ -1,4 +1,5 @@
-# build-v2.4-20260605
+# build-v2.9-cpu-only
+--extra-index-url https://download.pytorch.org/whl/cpu
 fastapi
 uvicorn
 pydantic
@@ -6,6 +7,8 @@ opencv-python
 mediapipe
 requests
 python-docx
+torch
+torchvision
 ultralytics
 python-dotenv
 fpdf2
