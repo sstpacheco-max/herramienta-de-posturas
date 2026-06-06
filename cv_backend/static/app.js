@@ -27,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnCloseModal = document.getElementById('btn-close-modal');
     const cameraForm = document.getElementById('camera-form');
     let browserStreamActive = false;
+    let activeWorkerName = 'Cámara PC';
 
     // ── Gestión de Trabajadores ───────────────────────────────────────────────
     let workersCache = [];
@@ -442,6 +443,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         browserStreamActive = true;
+        activeWorkerName = workerName;
 
         activeCamerasViewport.innerHTML = `
             <div class="video-wrapper" style="width:100%;height:100%;position:relative;overflow:hidden;background:#000;border-radius:8px;">
@@ -529,7 +531,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         timestamp: now.toISOString(),
                         pdf_b64: data.epp_pdf_b64
                     }], true);
-                    speakEPP(data.epp_missing || []);
+                    speakEPP(data.epp_missing || [], workerName);
                 }
                 if (data.pose_pdf_b64) {
                     updateAlerts([{
@@ -539,6 +541,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         timestamp: now.toISOString(),
                         pdf_b64: data.pose_pdf_b64
                     }], true);
+                    speakPosture(data.risk, workerName);
                 }
                 // Generic alert (no PDF) only for serious risk
                 if (!data.epp_pdf_b64 && !data.pose_pdf_b64 && (data.risk === 'Alto' || data.risk === 'Critico')) {
@@ -548,6 +551,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         risk: data.risk,
                         timestamp: now.toISOString()
                     }], true);
+                    speakPosture(data.risk, workerName);
                 }
             } catch(e) {
                 console.error('Frame processing error:', e);
@@ -601,36 +605,50 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) { console.error(e); }
     }
 
-    // --- Recordatorio de voz EPP ---
+    // --- Alertas de voz personalizadas ---
     let lastVoiceAlert = 0;
-    const VOICE_COOLDOWN_MS = 30000; // máximo una voz cada 30 s para no molestar
+    const VOICE_COOLDOWN_MS = 30000; // máximo una voz cada 30 s
 
-    function speakEPP(missing) {
+    function _speak(msg) {
         if (!window.speechSynthesis) return;
-        const now = Date.now();
-        if (now - lastVoiceAlert < VOICE_COOLDOWN_MS) return;
-        lastVoiceAlert = now;
-
-        let msg;
-        if (missing && missing.length > 0) {
-            const items = missing.join(', ');
-            msg = `Atención. Le falta el siguiente equipo de protección personal: ${items}. Recuerde que el uso del EPP es muy importante para su seguridad.`;
-        } else {
-            msg = 'Recuerde: el uso del equipo de protección personal es muy importante para su seguridad.';
-        }
-
         const utt = new SpeechSynthesisUtterance(msg);
         utt.lang = 'es-CO';
-        utt.rate = 0.95;
-        utt.pitch = 1;
+        utt.rate = 0.92;
+        utt.pitch = 1.05;
         utt.volume = 1;
         window.speechSynthesis.cancel();
         window.speechSynthesis.speak(utt);
     }
 
-    // Recordatorio periódico cada 5 minutos
+    function speakEPP(missing, name) {
+        const now = Date.now();
+        if (now - lastVoiceAlert < VOICE_COOLDOWN_MS) return;
+        lastVoiceAlert = now;
+
+        const quien = name && name !== 'Cámara PC' ? `${name}, ` : '';
+        let msg;
+        if (missing && missing.length > 0) {
+            const items = missing.join(', ');
+            msg = `Atención, ${quien}le falta el siguiente equipo de protección personal: ${items}. Por favor, póngaselo antes de continuar.`;
+        } else {
+            msg = `${quien}Recuerde usar siempre su equipo de protección personal. Su seguridad es lo primero.`;
+        }
+        _speak(msg);
+    }
+
+    function speakPosture(risk, name) {
+        const now = Date.now();
+        if (now - lastVoiceAlert < VOICE_COOLDOWN_MS) return;
+        lastVoiceAlert = now;
+
+        const quien = name && name !== 'Cámara PC' ? `${name}, ` : '';
+        const nivel = risk === 'Critico' ? 'crítica' : 'de alto riesgo';
+        _speak(`Atención, ${quien}se ha detectado una postura ${nivel}. Por favor, corrija su posición inmediatamente para evitar lesiones.`);
+    }
+
+    // Recordatorio periódico cada 5 minutos con el nombre del trabajador activo
     setInterval(() => {
-        if (browserStreamActive) speakEPP(null);
+        if (browserStreamActive) speakEPP(null, activeWorkerName);
     }, 5 * 60 * 1000);
 
     function updateAlerts(logs, prepend=false) {
